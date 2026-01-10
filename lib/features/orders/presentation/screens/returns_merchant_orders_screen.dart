@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/shipment_status_enum.dart';
 import '../../../../core/constants/entity_type_enum.dart';
@@ -28,6 +29,39 @@ class _ReturnsMerchantOrdersScreenState
   final Map<String, bool> _pickedUp = {};
   String? _toastMessage;
 
+  /// Format date from ISO string to readable format
+  String _formatDate(String dateString) {
+    try {
+      // Handle ISO format: 2025-12-15T14:29:37.227
+      DateTime dateTime;
+      if (dateString.contains('T')) {
+        // Remove milliseconds if present
+        final cleanDate = dateString.split('.')[0];
+        dateTime = DateTime.parse(cleanDate);
+      } else {
+        dateTime = DateTime.parse(dateString);
+      }
+
+      // Format: "15 Dec 2025, 2:29 PM"
+      final dateFormat = DateFormat('d MMM yyyy, h:mm a', 'en_US');
+      return dateFormat.format(dateTime);
+    } catch (e) {
+      debugPrint('❌ [ReturnsMerchantOrdersScreen] Error formatting date: $e');
+      // Return original if parsing fails
+      return dateString;
+    }
+  }
+
+  /// Get formatted address or placeholder
+  String _getFormattedAddress(String address) {
+    if (address.isEmpty ||
+        address.toLowerCase() == 'none' ||
+        address.trim().isEmpty) {
+      return 'Address not available';
+    }
+    return address;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -50,10 +84,23 @@ class _ReturnsMerchantOrdersScreenState
         return;
       }
 
-      final orders =
+      final newOrders =
           await _orderService.getBranchToMerchantReturnOrders(riderId);
+      
+      // Preserve orders that are in progress (picked up but not yet returned)
+      // These orders have status 18 (Rider return to merchant) and won't be returned by API
+      final inProgressOrders = _orders.where((order) => 
+        _pickedUp[order.pkMerchantOrderId] == true
+      ).toList();
+      
+      // Merge new orders with in-progress orders, avoiding duplicates
+      final existingOrderIds = newOrders.map((o) => o.pkMerchantOrderId).toSet();
+      final uniqueInProgressOrders = inProgressOrders.where((order) => 
+        !existingOrderIds.contains(order.pkMerchantOrderId)
+      ).toList();
+      
       setState(() {
-        _orders = orders;
+        _orders = [...newOrders, ...uniqueInProgressOrders];
         _isLoading = false;
       });
     } catch (e) {
@@ -90,10 +137,10 @@ class _ReturnsMerchantOrdersScreenState
         fkMerchantOrderId: order.pkMerchantOrderId,
         fkStatusId: ShipmentStatusEnum
             .riderReturnToMerchant, // Status 18: "Rider return to merchant"
-        fkFromEntityTypeId: EntityTypeEnum.branch, // From branch
-        fkToEntityTypeId: EntityTypeEnum.customer, // To merchant
+        fkFromEntityTypeId: EntityTypeEnum.branch, // From branch (2)
+        fkToEntityTypeId: EntityTypeEnum.customer, // To merchant (5 - merchant uses customer entity type)
         fkFromEntityId: order.fkFromEntityId, // Branch entity ID
-        fkToEntityId: '', // Merchant ID - backend will determine from order
+        fkToEntityId: order.fkMerchantId, // Merchant ID
         fkRiderId: riderId,
         fkUpdatedByEntityTypeId: EntityTypeEnum.rider, // Updated by Rider (4)
         fkUpdatedBy: riderId,
@@ -165,15 +212,17 @@ class _ReturnsMerchantOrdersScreenState
     try {
       // Flow 3 Step 3: "Returned to merchant" - Rider hands parcel back to Merchant
       // Status: 19 (Returned to merchant)
-      // From: Branch, To: Merchant
+      // From: Branch (where parcel was picked up from), To: Merchant
+      // Note: Based on enums.md, Merchant uses Customer entity type (5)
+      // Note: Step 2 (Status 18) uses merchant ID and works, so Step 3 should also use merchant ID
       final request = EventLogRequestModel(
         fkMerchantOrderId: order.pkMerchantOrderId,
         fkStatusId: ShipmentStatusEnum
             .returnedToMerchant, // Status 19: "Returned to merchant"
-        fkFromEntityTypeId: EntityTypeEnum.branch, // From branch
-        fkToEntityTypeId: EntityTypeEnum.customer, // To merchant
-        fkFromEntityId: order.fkFromEntityId, // Branch entity ID
-        fkToEntityId: '', // Merchant ID - backend will determine from order
+        fkFromEntityTypeId: EntityTypeEnum.branch, // From branch (2 - where parcel was picked up from)
+        fkToEntityTypeId: EntityTypeEnum.customer, // To merchant (5 - merchant uses customer entity type per enums.md)
+        fkFromEntityId: order.fkFromEntityId, // Branch entity ID (where parcel was picked up from)
+        fkToEntityId: order.fkMerchantId, // Merchant ID (same as Step 2 which works)
         fkRiderId: riderId,
         fkUpdatedByEntityTypeId: EntityTypeEnum.rider, // Updated by Rider (4)
         fkUpdatedBy: riderId,
@@ -185,6 +234,9 @@ class _ReturnsMerchantOrdersScreenState
         if (success) {
           setState(() {
             _toastMessage = 'Order returned to merchant successfully';
+            // Remove the order from the list after successful return
+            _orders.removeWhere((o) => o.pkMerchantOrderId == order.pkMerchantOrderId);
+            _pickedUp.remove(order.pkMerchantOrderId);
           });
           // Hide toast after 3 seconds
           Future.delayed(const Duration(seconds: 3), () {
@@ -194,6 +246,7 @@ class _ReturnsMerchantOrdersScreenState
               });
             }
           });
+          // Reload to get updated list (order will be removed as it's now status 19)
           _loadOrders();
         } else {
           setState(() {
@@ -419,28 +472,22 @@ class _ReturnsMerchantOrdersScreenState
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Text(
-                                                  'Ref: ${order.orderReferenceNumber}',
-                                                  style: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w400,
-                                                    color: AppColors.black,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  order.orderDate,
-                                                  style: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w400,
-                                                    color: AppColors.black,
-                                                  ),
-                                                ),
-                                              ],
+                                            Text(
+                                              'Ref: ${order.orderReferenceNumber}',
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w400,
+                                                color: AppColors.black,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              _formatDate(order.orderDate),
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w300,
+                                                color: AppColors.black,
+                                              ),
                                             ),
                                             const SizedBox(height: 8),
                                             Row(
@@ -479,13 +526,29 @@ class _ReturnsMerchantOrdersScreenState
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              order.deliveryAddress,
+                                              _getFormattedAddress(
+                                                  order.deliveryAddress),
                                               style: const TextStyle(
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w300,
                                                 color: AppColors.black,
                                               ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
+                                            if (order.receiverCity.isNotEmpty)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                    top: 4),
+                                                child: Text(
+                                                  order.receiverCity,
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w300,
+                                                    color: AppColors.black,
+                                                  ),
+                                                ),
+                                              ),
                                           ],
                                         ),
                                       ),

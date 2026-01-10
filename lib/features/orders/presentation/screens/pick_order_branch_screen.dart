@@ -3,6 +3,7 @@ import '../../../../core/constants/colors.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../data/models/customer_order_model.dart';
 import '../../data/services/order_service.dart';
+import 'deliver_customer_orders_screen.dart';
 
 class PickOrderBranchScreen extends StatefulWidget {
   const PickOrderBranchScreen({super.key});
@@ -215,9 +216,12 @@ class _PickOrderBranchScreenState extends State<PickOrderBranchScreen> {
                                       child: ElevatedButton(
                                         onPressed: () {
                                           // Navigate to delivery screen
-                                          Navigator.pushNamed(
+                                          Navigator.push(
                                             context,
-                                            '/deliver-customer-orders',
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  const DeliverCustomerOrdersScreen(),
+                                            ),
                                           );
                                         },
                                         style: ElevatedButton.styleFrom(
