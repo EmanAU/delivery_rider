@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/constants/colors.dart';
 import 'features/auth/presentation/screens/splash_screen.dart';
-import 'features/home/presentation/screens/home_screen.dart';
 
 void main() {
   runApp(const MyApp());

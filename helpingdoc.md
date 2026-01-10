@@ -23,7 +23,7 @@ the parcel on their portal to mark it as "Received."
  -->
 
 -----------------------------------------------------------------------------------------
-Flow 2: The Delivery (Branch -> Customer)
+<!-- Flow 2: The Delivery (Branch -> Customer)
 This is the "Last Mile." The parcel has arrived at the destination Branch, and the manager has
 assigned it to a Rider to deliver to the Customer.
 • Step A (See Tasks): The rider needs to see a list of orders assigned to them for final
@@ -37,7 +37,7 @@ rider a code (OTP). You must verify this code before handing over the package.
 o Use Endpoint: GET /verify-otp 
 • Step D (Completion): If the OTP is correct, the rider hands over the package.
 o Use Endpoint: POST /change-shipment-status
-o Status to send: "Received by Customer"
+o Status to send: "Received by Customer" -->
 
 
 
@@ -53,6 +53,7 @@ o Status to send: "Customer Not Found" OR "Customer Not Accepted"
 o (The rider then takes the parcel back to the branch).
 • Scenario B (Returning to Merchant): Later, the Branch needs to send that failed parcel
 back to the original Merchant.
+
 o Step 1 (See Tasks): The rider checks for return jobs.
 ▪ Use Endpoint: GET /branch-to-merchant-return
 o Step 2 (Pickup Return): The rider picks up the return parcel from the Branch.
@@ -63,64 +64,3 @@ o Step 3 (Drop off Return): The rider hands the parcel back to the Merchant.
 ▪ Status to send: "Returned to merchant"
 
 
-
--- 
-
-
-this is rdierlogrequest
-  public class RiderLogRequestModel
-    {
-        [Required]
-        public string fk_MerchantOrderId { get; set; } = string.Empty;
-        [Required]
-        public int fk_StatusId { get; set; }
-        [Required]
-        public int fk_ToEntityTypeId { get; set; }
-        public string? fk_ToEntityId { get; set; } = null;
-        [Required]
-        public string? fk_RiderId { get; set; } = null;
-        [Required]
-        public string ToEntityName { get; set; }= string.Empty;
-        [Required]
-        public string ToEntityId { get; set; }=string.Empty;
-      
-    }
-}
-
-
-------------------------------------
-branch to customer response public class BrnToCstResponseModel
-    {
-        public string pk_MerchantOrderId { get; set; } = string.Empty;
-        public string fk_MerchantId { get; set; } = string.Empty;
-        public string OrderReferenceNumber { get; set; } = string.Empty;
-        public string ShipmentDescription { get; set; } = string.Empty;
-
-        public int OrderQuantity { get; set; }
-        public decimal OrderWeight { get; set; }
-        public decimal OrderLength { get; set; }
-        public decimal OrderHeight { get; set; }
-        public decimal OrderWidth { get; set; }
-
-        public string SpecialInstructions { get; set; } = string.Empty;
-        public bool IsFragile { get; set; }
-        public DateTime OrderDate { get; set; }
-
-        public string FromEntityName { get; set; } = string.Empty;
-        public string ToEntityName { get; set; } = string.Empty;
-        public DateTime EventDateTime { get; set; }
-
-        public string ReceiverCity { get; set; } = string.Empty;
-        public decimal OrderAmount { get; set; }
-        public string ReceiverName { get; set; } = string.Empty;
-        public string ReceiverContactNumber { get; set; } = string.Empty;
-        public string DeliveryAddress { get; set; } = string.Empty;
-        public string DeliveryLandmark { get; set; } = string.Empty;
-        public string PaymentMethod { get; set; } = string.Empty;
-        public bool IsReturnable { get; set; }
-        public string fk_FromEntityId { get; set; }
-        public int fk_ShipmentStatusId { get; set; }
-    }
-
-}
-----------------------------------------------------------------------
