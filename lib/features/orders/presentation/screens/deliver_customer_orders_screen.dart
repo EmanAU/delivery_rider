@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/colors.dart';
+import '../../../../core/constants/shipment_status_enum.dart';
+import '../../../../core/constants/entity_type_enum.dart';
+import '../../../../core/services/storage_service.dart';
+import '../../data/models/customer_order_model.dart';
+import '../../data/services/order_service.dart';
+import '../../data/services/delivery_service.dart';
+import '../../data/models/event_log_request_model.dart';
 
 class DeliverCustomerOrdersScreen extends StatefulWidget {
   const DeliverCustomerOrdersScreen({super.key});
@@ -11,17 +18,22 @@ class DeliverCustomerOrdersScreen extends StatefulWidget {
 
 class _DeliverCustomerOrdersScreenState
     extends State<DeliverCustomerOrdersScreen> {
-  // Sample data - replace with actual data from API
-  final Map<String, String> orderData = {
-    'ref': '12345',
-    'date': '07-01-2026',
-    'customerName': 'Abdullah Traders',
-    'phone': '03214567890',
-    'address': 'F8/2 Street 23',
-    'orderAmount': '2300',
-  };
-
+  final OrderService _orderService = OrderService();
+  final DeliveryService _deliveryService = DeliveryService();
+  final StorageService _storageService = StorageService();
+  List<CustomerOrderModel> _orders = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+  final Map<String, bool> _processingOrders = {};
+  final Map<String, bool> _journeyStarted = {};
   final TextEditingController _otpController = TextEditingController();
+  CustomerOrderModel? _currentOrderForOtp;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrders();
+  }
 
   @override
   void dispose() {
@@ -29,7 +41,107 @@ class _DeliverCustomerOrdersScreenState
     super.dispose();
   }
 
-  void _showVerifyOtpDialog() {
+  Future<void> _loadOrders() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final riderId = await _storageService.getRiderId();
+      if (riderId == null) {
+        setState(() {
+          _errorMessage = 'Unable to get rider ID. Please login again.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final orders = await _orderService.getBranchToCustomerOrders(riderId);
+      setState(() {
+        _orders = orders;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _handleStartJourney(CustomerOrderModel order) async {
+    final riderId = await _storageService.getRiderId();
+    if (riderId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to get rider ID. Please login again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _processingOrders[order.pkMerchantOrderId] = true;
+    });
+
+    try {
+      final request = EventLogRequestModel(
+        fkMerchantOrderId: order.pkMerchantOrderId,
+        fkStatusId: ShipmentStatusEnum.riderIsOnTheWayToDeliver,
+        fkFromEntityTypeId: EntityTypeEnum.branch, // From branch
+        fkToEntityTypeId: EntityTypeEnum.customer, // To customer
+        fkFromEntityId: order.fkFromEntityId, // Branch entity ID
+        fkToEntityId: order.fkFromEntityId, // Customer entity ID
+        fkRiderId: riderId,
+        fkUpdatedByEntityTypeId: 4175, // Updated by rider
+        fkUpdatedBy: riderId,
+      );
+
+      final success = await _deliveryService.changeShipmentStatus(request);
+
+      if (mounted) {
+        if (success) {
+          setState(() {
+            _journeyStarted[order.pkMerchantOrderId] = true;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Journey started successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to start journey'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _processingOrders[order.pkMerchantOrderId] = false;
+      });
+    }
+  }
+
+  void _showVerifyOtpDialog(CustomerOrderModel order) {
+    _currentOrderForOtp = order;
+    _otpController.clear();
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -89,11 +201,23 @@ class _DeliverCustomerOrdersScreenState
               ),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (_otpController.text.length == 6) {
+                  final otp = int.tryParse(_otpController.text);
+                  if (otp == null) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a valid OTP'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                    return;
+                  }
+
                   Navigator.of(context).pop();
-                  _otpController.clear();
-                  _showOrderDetailsDialog();
+                  await _verifyOtp(order, otp);
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -122,8 +246,49 @@ class _DeliverCustomerOrdersScreenState
     );
   }
 
-  void _showOrderDetailsDialog() {
-    String selectedPaymentMethod = 'Cash';
+  Future<void> _verifyOtp(CustomerOrderModel order, int otp) async {
+    setState(() {
+      _processingOrders[order.pkMerchantOrderId] = true;
+    });
+
+    try {
+      final isVerified = await _deliveryService.verifyOtp(
+        order.pkMerchantOrderId,
+        otp,
+      );
+
+      if (mounted) {
+        if (isVerified) {
+          _showOrderDetailsDialog(order);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid OTP. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _processingOrders[order.pkMerchantOrderId] = false;
+      });
+    }
+  }
+
+  void _showOrderDetailsDialog(CustomerOrderModel order) {
+    String selectedPaymentMethod = order.paymentMethod.isNotEmpty
+        ? order.paymentMethod
+        : 'Cash';
 
     showDialog(
       context: context,
@@ -141,7 +306,6 @@ class _DeliverCustomerOrdersScreenState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Header with black background
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -162,7 +326,6 @@ class _DeliverCustomerOrdersScreenState
                       ),
                     ),
                   ),
-                  // Content
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: const BoxDecoration(
@@ -175,11 +338,10 @@ class _DeliverCustomerOrdersScreenState
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Order Amount
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 16.0),
                           child: Text(
-                            'Order Amount: ${orderData['orderAmount']}',
+                            'Order Amount: ${order.orderAmount.toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w400,
@@ -188,7 +350,6 @@ class _DeliverCustomerOrdersScreenState
                           ),
                         ),
                         const SizedBox(height: 16),
-                        // Payment Method Dropdown
                         Container(
                           width: double.infinity,
                           decoration: BoxDecoration(
@@ -209,14 +370,14 @@ class _DeliverCustomerOrdersScreenState
                                 fontWeight: FontWeight.w400,
                                 color: AppColors.black,
                               ),
-                              items: ['Cash', 'Card', 'Online'].map((
-                                String value,
-                              ) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value),
-                                );
-                              }).toList(),
+                              items: ['Cash', 'Card', 'Online'].map(
+                                (String value) {
+                                  return DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  );
+                                },
+                              ).toList(),
                               onChanged: (String? newValue) {
                                 if (newValue != null) {
                                   setState(() {
@@ -232,19 +393,13 @@ class _DeliverCustomerOrdersScreenState
                           ),
                         ),
                         const SizedBox(height: 24),
-                        // Complete Order Button
                         SizedBox(
                           width: double.infinity,
                           height: 50,
                           child: ElevatedButton(
                             onPressed: () {
                               Navigator.of(context).pop();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Order completed successfully'),
-                                  backgroundColor: AppColors.black,
-                                ),
-                              );
+                              _completeOrder(order);
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.black,
@@ -275,8 +430,75 @@ class _DeliverCustomerOrdersScreenState
     );
   }
 
-  void _handleReturnToBranch() {
-    showDialog(
+  Future<void> _completeOrder(CustomerOrderModel order) async {
+    final riderId = await _storageService.getRiderId();
+    if (riderId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to get rider ID. Please login again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _processingOrders[order.pkMerchantOrderId] = true;
+    });
+
+    try {
+      final request = EventLogRequestModel(
+        fkMerchantOrderId: order.pkMerchantOrderId,
+        fkStatusId: ShipmentStatusEnum.receivedByCustomer,
+        fkFromEntityTypeId: EntityTypeEnum.branch, // From branch
+        fkToEntityTypeId: EntityTypeEnum.customer, // To customer
+        fkFromEntityId: order.fkFromEntityId, // Branch entity ID
+        fkToEntityId: order.fkFromEntityId, // Customer entity ID
+        fkRiderId: riderId,
+        fkUpdatedByEntityTypeId: 4175, // Updated by rider
+        fkUpdatedBy: riderId,
+      );
+
+      final success = await _deliveryService.changeShipmentStatus(request);
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Order completed successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          _loadOrders();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to complete order'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _processingOrders[order.pkMerchantOrderId] = false;
+      });
+    }
+  }
+
+  Future<void> _handleReturnToBranch(CustomerOrderModel order) async {
+    final result = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -293,7 +515,7 @@ class _DeliverCustomerOrdersScreenState
             ),
           ),
           content: const Text(
-            'Are you sure you want to return this order to branch?',
+            'Select reason for return:',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w300,
@@ -302,9 +524,7 @@ class _DeliverCustomerOrdersScreenState
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+              onPressed: () => Navigator.of(context).pop(false),
               child: const Text(
                 'Cancel',
                 style: TextStyle(
@@ -315,14 +535,24 @@ class _DeliverCustomerOrdersScreenState
               ),
             ),
             ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.black,
+                foregroundColor: AppColors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 0,
+              ),
+              child: const Text(
+                'Customer Not Found',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+            ),
+            ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Order returned to branch'),
-                    backgroundColor: AppColors.black,
-                  ),
-                );
+                _returnOrder(order, ShipmentStatusEnum.customerDidNotAccept);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.black,
@@ -333,7 +563,7 @@ class _DeliverCustomerOrdersScreenState
                 elevation: 0,
               ),
               child: const Text(
-                'Return',
+                'Not Accepted',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
             ),
@@ -341,6 +571,80 @@ class _DeliverCustomerOrdersScreenState
         );
       },
     );
+
+    if (result == true) {
+      _returnOrder(order, ShipmentStatusEnum.customerNotFound);
+    }
+  }
+
+  Future<void> _returnOrder(
+    CustomerOrderModel order,
+    int statusId,
+  ) async {
+    final riderId = await _storageService.getRiderId();
+    if (riderId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to get rider ID. Please login again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _processingOrders[order.pkMerchantOrderId] = true;
+    });
+
+    try {
+      final request = EventLogRequestModel(
+        fkMerchantOrderId: order.pkMerchantOrderId,
+        fkStatusId: statusId,
+        fkFromEntityTypeId: EntityTypeEnum.customer, // From customer
+        fkToEntityTypeId: EntityTypeEnum.branch, // To branch
+        fkFromEntityId: order.fkFromEntityId, // Customer entity ID
+        fkToEntityId: order.fkFromEntityId, // Branch entity ID
+        fkRiderId: riderId,
+        fkUpdatedByEntityTypeId: 4175, // Updated by rider
+        fkUpdatedBy: riderId,
+      );
+
+      final success = await _deliveryService.changeShipmentStatus(request);
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Order returned to branch'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          _loadOrders();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to return order'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _processingOrders[order.pkMerchantOrderId] = false;
+      });
+    }
   }
 
   @override
@@ -355,151 +659,266 @@ class _DeliverCustomerOrdersScreenState
           'Deliver to Customer Orders',
           style: TextStyle(fontWeight: FontWeight.w300, letterSpacing: 1),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadOrders,
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Customer Information Block
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.black.withValues(alpha: 0.05),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: AppColors.black,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Ref and Date row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            )
+          : _errorMessage != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Ref: ${orderData['ref']}',
+                        _errorMessage!,
                         style: const TextStyle(
+                          color: Colors.red,
                           fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                          color: AppColors.black,
                         ),
+                        textAlign: TextAlign.center,
                       ),
-                      Text(
-                        orderData['date']!,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                          color: AppColors.black,
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadOrders,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.black,
+                          foregroundColor: AppColors.white,
                         ),
+                        child: const Text('Retry'),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  // Customer name
-                  Row(
-                    children: [
-                      const Text(
-                        '1.',
+                )
+              : _orders.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No orders available',
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w400,
                           color: AppColors.black,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          orderData['customerName']!,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.black,
-                          ),
-                          softWrap: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // Phone number
-                  Text(
-                    orderData['phone']!,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadOrders,
                       color: AppColors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Address
-                  Padding(
-                    padding: const EdgeInsets.only(left: 24.0),
-                    child: Text(
-                      orderData['address']!,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w300,
-                        color: AppColors.black,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16.0),
+                        itemCount: _orders.length,
+                        itemBuilder: (context, index) {
+                          final order = _orders[index];
+                          final isProcessing =
+                              _processingOrders[order.pkMerchantOrderId] ?? false;
+                          final journeyStarted =
+                              _journeyStarted[order.pkMerchantOrderId] ?? false;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: AppColors.black.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Ref: ${order.orderReferenceNumber}',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w400,
+                                        color: AppColors.black,
+                                      ),
+                                    ),
+                                    Text(
+                                      order.orderDate,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w400,
+                                        color: AppColors.black,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Text(
+                                      '${index + 1}.',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w400,
+                                        color: AppColors.black,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        order.receiverName,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.black,
+                                        ),
+                                        softWrap: true,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  order.receiverContactNumber,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 24.0),
+                                  child: Text(
+                                    order.deliveryAddress,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w300,
+                                      color: AppColors.black,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                if (!journeyStarted)
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 48,
+                                    child: ElevatedButton(
+                                      onPressed: isProcessing
+                                          ? null
+                                          : () => _handleStartJourney(order),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.black,
+                                        foregroundColor: AppColors.white,
+                                        disabledBackgroundColor:
+                                            AppColors.black.withValues(alpha: 0.5),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        elevation: 0,
+                                      ),
+                                      child: isProcessing
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : const Text(
+                                              'Start Journey',
+                                              style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                    ),
+                                  )
+                                else
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: SizedBox(
+                                          height: 48,
+                                          child: ElevatedButton(
+                                            onPressed: isProcessing
+                                                ? null
+                                                : () =>
+                                                    _showVerifyOtpDialog(order),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppColors.black,
+                                              foregroundColor: AppColors.white,
+                                              disabledBackgroundColor:
+                                                  AppColors.black
+                                                      .withValues(alpha: 0.5),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              elevation: 0,
+                                            ),
+                                            child: isProcessing
+                                                ? const SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: Colors.white,
+                                                    ),
+                                                  )
+                                                : const Text(
+                                                    'Verify OTP',
+                                                    style: TextStyle(
+                                                      fontSize: 15,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: SizedBox(
+                                          height: 48,
+                                          child: ElevatedButton(
+                                            onPressed: isProcessing
+                                                ? null
+                                                : () =>
+                                                    _handleReturnToBranch(order),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppColors.black,
+                                              foregroundColor: AppColors.white,
+                                              disabledBackgroundColor:
+                                                  AppColors.black
+                                                      .withValues(alpha: 0.5),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              elevation: 0,
+                                            ),
+                                            child: const Text(
+                                              'Return To Branch',
+                                              style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Action buttons - moved down
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: _showVerifyOtpDialog,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.black,
-                              foregroundColor: AppColors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: const Text(
-                              'Verify OTP',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SizedBox(
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: _handleReturnToBranch,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.black,
-                              foregroundColor: AppColors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: const Text(
-                              'Return To Branch',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

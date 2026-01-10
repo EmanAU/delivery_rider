@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/constants/colors.dart';
 import '../../../home/presentation/screens/home_screen.dart';
 import '../../data/models/login_request_model.dart';
@@ -29,46 +30,77 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
+    debugPrint('🚀 [LoginScreen] Login button pressed');
+    
     if (_formKey.currentState!.validate()) {
+      debugPrint('✅ [LoginScreen] Form validation passed');
+      debugPrint('🚀 [LoginScreen] Setting loading state to true');
       setState(() => _isLoading = true);
 
       try {
+        final username = _usernameController.text.trim();
+        final password = _passwordController.text;
+        
+        debugPrint('🚀 [LoginScreen] Creating login request...');
+        debugPrint('🚀 [LoginScreen] Username: $username');
+        debugPrint('🚀 [LoginScreen] Password length: ${password.length}');
+        
         final request = LoginRequestModel(
-          username: _usernameController.text.trim(),
-          password: _passwordController.text,
+          username: username,
+          passwordHash: password,
         );
 
+        debugPrint('🚀 [LoginScreen] Calling AuthService.riderLogin...');
         final response = await _authService.riderLogin(request);
 
-        if (!mounted) return;
+        if (!mounted) {
+          debugPrint('⚠️ [LoginScreen] Widget not mounted, returning');
+          return;
+        }
 
         if (response != null) {
+          debugPrint('✅ [LoginScreen] Login API call successful');
+          
           // Validate response data
           if (response.accessToken.isEmpty) {
+            debugPrint('❌ [LoginScreen] Access token is empty');
             throw Exception('Invalid response: Access token is missing');
           }
+
+          debugPrint('✅ [LoginScreen] Access token validated');
+          debugPrint('🚀 [LoginScreen] Saving login data to storage...');
+          debugPrint('🚀 [LoginScreen] UserName: ${response.userName}');
+          debugPrint('🚀 [LoginScreen] RiderId: ${response.riderId}');
+          debugPrint('🚀 [LoginScreen] ExpiresIn: ${response.expiresIn}');
 
           // Save login data
           try {
             await _storageService.saveLoginData(
               accessToken: response.accessToken,
               userName: response.userName,
+              riderId: response.riderId,
               expiresIn: response.expiresIn,
             );
+            debugPrint('✅ [LoginScreen] Login data saved successfully');
           } catch (e) {
+            debugPrint('❌ [LoginScreen] Failed to save login data: $e');
             throw Exception('Failed to save login data. Please try again.');
           }
 
+          debugPrint('🚀 [LoginScreen] Navigating to HomeScreen...');
           // Navigate to home screen
           if (mounted) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (context) => const HomeScreen()),
             );
+            debugPrint('✅ [LoginScreen] Navigation to HomeScreen completed');
           }
         } else {
+          debugPrint('❌ [LoginScreen] Invalid credentials (response is null)');
           // Invalid credentials
           if (mounted) {
             setState(() => _isLoading = false);
+            debugPrint('🚀 [LoginScreen] Showing error snackbar');
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Invalid username or password'),
@@ -79,13 +111,19 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         }
       } catch (e) {
-        if (!mounted) return;
+        debugPrint('❌ [LoginScreen] Error occurred: $e');
+        if (!mounted) {
+          debugPrint('⚠️ [LoginScreen] Widget not mounted, returning');
+          return;
+        }
         
         setState(() => _isLoading = false);
+        debugPrint('🚀 [LoginScreen] Setting loading state to false');
         
         // Extract user-friendly error message
         String errorMessage = 'Login failed';
         final errorString = e.toString();
+        debugPrint('🚀 [LoginScreen] Processing error message: $errorString');
         
         if (errorString.contains('timeout')) {
           errorMessage = 'Connection timeout. Please check your internet connection.';
@@ -100,6 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
           errorMessage = errorString.replaceAll('Exception: ', '');
         }
 
+        debugPrint('🚀 [LoginScreen] Showing error snackbar: $errorMessage');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
@@ -115,6 +154,8 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       }
+    } else {
+      debugPrint('❌ [LoginScreen] Form validation failed');
     }
   }
 

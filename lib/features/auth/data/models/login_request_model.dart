@@ -1,10 +1,10 @@
 class LoginRequestModel {
   final String username;
-  final String password;
+  final String passwordHash;
 
-  LoginRequestModel({required this.username, required this.password});
+  LoginRequestModel({required this.username, required this.passwordHash});
 
   Map<String, dynamic> toJson() {
-    return {'Username': username, 'Password': password};
+    return {'Username': username, 'PasswordHash': passwordHash};
   }
 }

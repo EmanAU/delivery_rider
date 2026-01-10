@@ -1,19 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/constants/colors.dart';
+import '../../../../core/services/storage_service.dart';
 import '../../../orders/presentation/screens/merchant_orders_screen.dart';
 import '../../../orders/presentation/screens/deliver_customer_orders_screen.dart';
 import '../../../orders/presentation/screens/returns_merchant_orders_screen.dart';
 import '../../../orders/presentation/screens/pick_order_branch_screen.dart';
 import '../../../auth/presentation/screens/login_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final _storageService = StorageService();
+  String _riderName = 'Loading...';
+
+  @override
+  void initState() {
+    super.initState();
+    debugPrint('🏠 [HomeScreen] Initializing...');
+    _fetchRiderName();
+  }
+
+  Future<void> _fetchRiderName() async {
+    debugPrint('🏠 [HomeScreen] Fetching rider name from storage...');
+    try {
+      final userName = await _storageService.getUserName();
+      if (mounted) {
+        setState(() {
+          _riderName = userName ?? 'Unknown Rider';
+        });
+        debugPrint('✅ [HomeScreen] Rider name fetched: $_riderName');
+      }
+    } catch (e) {
+      debugPrint('❌ [HomeScreen] Error fetching rider name: $e');
+      if (mounted) {
+        setState(() {
+          _riderName = 'Unknown Rider';
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isLargeScreen = size.width > 800;
+    debugPrint('🏠 [HomeScreen] Building UI (Large screen: $isLargeScreen)');
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -81,7 +118,7 @@ class HomeScreen extends StatelessWidget {
                         const SizedBox(height: 16),
                         // Rider name
                         Text(
-                          'Rider: John Doe',
+                          'Rider: $_riderName',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w300,
@@ -139,11 +176,11 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 16),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                const Text(
                                   'SOAR LOGISTICS',
                                   style: TextStyle(
                                     fontSize: 20,
@@ -152,10 +189,10 @@ class HomeScreen extends StatelessWidget {
                                     letterSpacing: 2,
                                   ),
                                 ),
-                                SizedBox(height: 4),
+                                const SizedBox(height: 4),
                                 Text(
-                                  'Rider: John Doe',
-                                  style: TextStyle(
+                                  'Rider: $_riderName',
+                                  style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w300,
                                     color: AppColors.black,
@@ -342,12 +379,24 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
+                debugPrint('🚪 [HomeScreen] Logout confirmed');
                 Navigator.of(context).pop();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
-                );
+                debugPrint('🚪 [HomeScreen] Clearing login data...');
+                await _storageService.clearLoginData();
+                debugPrint('✅ [HomeScreen] Login data cleared');
+                debugPrint('🚪 [HomeScreen] Navigating to LoginScreen...');
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
+                    (route) => false,
+                  );
+                  debugPrint(
+                    '✅ [HomeScreen] Navigation to LoginScreen completed',
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.black,
