@@ -23,6 +23,7 @@ class CustomerOrderModel {
   final String deliveryLandmark;
   final String paymentMethod;
   final bool isReturnable;
+  final int fkShipmentStatusId;
 
   CustomerOrderModel({
     required this.pkMerchantOrderId,
@@ -49,6 +50,7 @@ class CustomerOrderModel {
     required this.deliveryLandmark,
     required this.paymentMethod,
     required this.isReturnable,
+    required this.fkShipmentStatusId,
   });
 
   factory CustomerOrderModel.fromJson(Map<String, dynamic> json) {
@@ -77,6 +79,7 @@ class CustomerOrderModel {
       deliveryLandmark: json['deliveryLandmark'] ?? '',
       paymentMethod: json['paymentMethod'] ?? '',
       isReturnable: json['isReturnable'] ?? false,
+      fkShipmentStatusId: json['fk_ShipmentStatusId'] ?? json['fkShipmentStatusId'] ?? 0,
     );
   }
 
@@ -106,6 +109,7 @@ class CustomerOrderModel {
       'deliveryLandmark': deliveryLandmark,
       'paymentMethod': paymentMethod,
       'isReturnable': isReturnable,
+      'fk_ShipmentStatusId': fkShipmentStatusId,
     };
   }
 }

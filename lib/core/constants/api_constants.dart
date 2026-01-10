@@ -11,10 +11,10 @@ class ApiConstants {
 
   // Rider Orders Endpoints
   static const String merchantBranchOrders =
-      '$baseUrl/RiderOrders/merchant-branch-orders';
+      '$baseUrl/riderorders/merchant-branch-orders';
   static const String branchToCustomer =
-      '$baseUrl/RiderOrders/branch-to-customer';
+      '$baseUrl/riderorders/branch-to-customer';
   static const String branchToMerchantReturn =
-      '$baseUrl/RiderOrders/branch-to-merchant-return';
-  static const String verifyOtp = '$baseUrl/RiderOrders/verify-otp';
+      '$baseUrl/riderorders/branch-to-merchant-return';
+  static const String verifyOtp = '$baseUrl/riderorders/verify-otp';
 }

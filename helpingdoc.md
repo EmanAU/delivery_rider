@@ -1,4 +1,4 @@
-SOAR API
+<!-- SOAR API
 1. Getting Started (Authentication)
 Before a rider can do anything, they need to log in to identify which specific Branch they belong
 to.
@@ -20,7 +20,7 @@ o Status to send: "Picked by Rider"
 • Step C (Drop off): The rider drops it at the Branch.
 o Note: The app does not need to do anything here. The Branch Manager will scan
 the parcel on their portal to mark it as "Received."
-
+ -->
 
 -----------------------------------------------------------------------------------------
 Flow 2: The Delivery (Branch -> Customer)
@@ -34,10 +34,16 @@ o Use Endpoint: POST /change-shipment-status
 o Status to send: "Rider is on the way"
 • Step C (Verification): The rider arrives at the customer's door. The customer gives the
 rider a code (OTP). You must verify this code before handing over the package.
-o Use Endpoint: GET /verify-otp
+o Use Endpoint: GET /verify-otp 
 • Step D (Completion): If the OTP is correct, the rider hands over the package.
 o Use Endpoint: POST /change-shipment-status
 o Status to send: "Received by Customer"
+
+
+
+
+
+---------------------------------------------------------------------------------
 Flow 3: Returns (Failure & Reverse Logistics)
 Sometimes the customer isn't home, or they reject the order.
 • Scenario A (Delivery Failed): If the rider is at the customer's location but the delivery

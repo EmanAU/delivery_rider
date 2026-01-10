@@ -24,6 +24,7 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   final Map<String, bool> _processingOrders = {};
+  String? _toastMessage;
 
   /// Format date from ISO string to readable format
   String _formatDate(String dateString) {
@@ -59,7 +60,6 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
   @override
   void initState() {
     super.initState();
-    debugPrint('📦 [MerchantOrdersScreen] Initializing...');
     _loadOrders();
   }
 
@@ -88,7 +88,7 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
       final orders = await _orderService.getMerchantBranchOrders(riderId);
       debugPrint('📦 [MerchantOrdersScreen] Orders received: ${orders.length} orders');
       
-      // Log each order's details
+      // Log each order's details including status
       for (int i = 0; i < orders.length; i++) {
         final order = orders[i];
         debugPrint('📦 [MerchantOrdersScreen] Order $i:');
@@ -99,7 +99,12 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
         debugPrint('   - orderDate: ${order.orderDate}');
         debugPrint('   - merchantPhoneNumber: ${order.merchantPhoneNumber}');
         debugPrint('   - toEntityName: ${order.toEntityName}');
+        debugPrint('   - fkShipmentStatusId: ${order.fkShipmentStatusId} ${order.fkShipmentStatusId == 10 ? "✅ PICKED BY RIDER" : ""}');
       }
+      
+      // Count orders by status
+      final pickedOrders = orders.where((o) => o.fkShipmentStatusId == 10).length;
+      debugPrint('📦 [MerchantOrdersScreen] Orders with status 10 (Picked by Rider): $pickedOrders');
       
       setState(() {
         _orders = orders;
@@ -117,19 +122,8 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
   }
 
   Future<void> _handleReceive(MerchantOrderModel order) async {
-    debugPrint('📦 [MerchantOrdersScreen] Handle receive button pressed');
-    debugPrint('📦 [MerchantOrdersScreen] Order details:');
-    debugPrint('   - pkMerchantOrderId: ${order.pkMerchantOrderId}');
-    debugPrint('   - orderReferenceNumber: ${order.orderReferenceNumber}');
-    debugPrint('   - businessName: ${order.businessName}');
-    debugPrint('   - toEntityName: ${order.toEntityName}');
-    
-    debugPrint('📦 [MerchantOrdersScreen] Getting rider ID...');
     final riderId = await _storageService.getRiderId();
-    debugPrint('📦 [MerchantOrdersScreen] Rider ID: $riderId');
-    
     if (riderId == null) {
-      debugPrint('❌ [MerchantOrdersScreen] Rider ID is null, cannot proceed');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -141,69 +135,57 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
       return;
     }
 
-    debugPrint('📦 [MerchantOrdersScreen] Setting processing state for order: ${order.pkMerchantOrderId}');
     setState(() {
       _processingOrders[order.pkMerchantOrderId] = true;
     });
 
     try {
       // Flow 1 Step B: "Picked by Rider" - When rider physically picks up parcel from Merchant
-      // Status: 10 (Picked by Rider)
-      // From: Merchant, To: Branch (rider's branch)
-      debugPrint('📦 [MerchantOrdersScreen] Creating event log request...');
-      debugPrint('📦 [MerchantOrdersScreen] Flow 1 Step B: Picked by Rider');
       final request = EventLogRequestModel(
         fkMerchantOrderId: order.pkMerchantOrderId,
         fkStatusId: ShipmentStatusEnum.pickedByRider, // Status 10: "Picked by Rider"
-        fkFromEntityTypeId: EntityTypeEnum.customer, // From Merchant (using customer enum as merchant type)
+        fkFromEntityTypeId: EntityTypeEnum.customer, // From Merchant
         fkToEntityTypeId: EntityTypeEnum.branch, // To Branch
         fkFromEntityId: order.fkMerchantId, // Merchant ID
-        fkToEntityId: '', // Branch ID - will be determined by backend based on rider's branch
+        fkToEntityId: '', // Branch ID - backend will determine
         fkRiderId: riderId,
         fkUpdatedByEntityTypeId: EntityTypeEnum.rider, // Updated by Rider
         fkUpdatedBy: riderId,
       );
-      
-      debugPrint('📦 [MerchantOrdersScreen] Event log request created:');
-      debugPrint('   - fkMerchantOrderId: ${request.fkMerchantOrderId}');
-      debugPrint('   - fkStatusId: ${request.fkStatusId}');
-      debugPrint('   - fkFromEntityTypeId: ${request.fkFromEntityTypeId}');
-      debugPrint('   - fkToEntityTypeId: ${request.fkToEntityTypeId}');
-      debugPrint('   - fkFromEntityId: ${request.fkFromEntityId}');
-      debugPrint('   - fkToEntityId: ${request.fkToEntityId}');
-      debugPrint('   - fkRiderId: ${request.fkRiderId}');
-      debugPrint('   - fkUpdatedByEntityTypeId: ${request.fkUpdatedByEntityTypeId}');
-      debugPrint('   - fkUpdatedBy: ${request.fkUpdatedBy}');
 
-      debugPrint('📦 [MerchantOrdersScreen] Calling changeShipmentStatus...');
       final success = await _deliveryService.changeShipmentStatus(request);
-      debugPrint('📦 [MerchantOrdersScreen] changeShipmentStatus result: $success');
 
       if (mounted) {
         if (success) {
-          debugPrint('✅ [MerchantOrdersScreen] Order received successfully');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Order received successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          // Reload orders
-          debugPrint('📦 [MerchantOrdersScreen] Reloading orders...');
+          // Show toast message below appbar
+          setState(() {
+            _toastMessage = 'Order successfully picked';
+          });
+          // Hide toast after 3 seconds
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted) {
+              setState(() {
+                _toastMessage = null;
+              });
+            }
+          });
+          // Reload orders - backend will decide if order stays or goes
           _loadOrders();
         } else {
-          debugPrint('❌ [MerchantOrdersScreen] Failed to receive order');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to receive order'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          setState(() {
+            _toastMessage = 'Failed to pick up order';
+          });
+          // Hide toast after 3 seconds
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted) {
+              setState(() {
+                _toastMessage = null;
+              });
+            }
+          });
         }
       }
     } catch (e) {
-      debugPrint('❌ [MerchantOrdersScreen] Error in _handleReceive: $e');
-      debugPrint('❌ [MerchantOrdersScreen] Error type: ${e.runtimeType}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -213,7 +195,6 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
         );
       }
     } finally {
-      debugPrint('📦 [MerchantOrdersScreen] Clearing processing state for order: ${order.pkMerchantOrderId}');
       setState(() {
         _processingOrders[order.pkMerchantOrderId] = false;
       });
@@ -222,9 +203,6 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('📦 [MerchantOrdersScreen] Building UI');
-    debugPrint('📦 [MerchantOrdersScreen] State: isLoading=$_isLoading, errorMessage=$_errorMessage, ordersCount=${_orders.length}');
-    
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
@@ -242,7 +220,42 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
           ),
         ],
       ),
-      body: _isLoading
+      body: Column(
+        children: [
+          // Toast message below appbar
+          if (_toastMessage != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              color: _toastMessage!.contains('successfully') 
+                  ? Colors.green 
+                  : Colors.red,
+              child: Row(
+                children: [
+                  Icon(
+                    _toastMessage!.contains('successfully') 
+                        ? Icons.check_circle 
+                        : Icons.error,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _toastMessage!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Main content
+          Expanded(
+            child: _isLoading
           ? const Center(
               child: CircularProgressIndicator(
                 color: AppColors.black,
@@ -292,13 +305,7 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
                         itemBuilder: (context, index) {
                           final order = _orders[index];
                           final isProcessing =
-                              _processingOrders[order.pkMerchantOrderId] ??
-                                  false;
-                          
-                          debugPrint('📦 [MerchantOrdersScreen] Building order item $index:');
-                          debugPrint('   - Order ID: ${order.pkMerchantOrderId}');
-                          debugPrint('   - Reference: ${order.orderReferenceNumber}');
-                          debugPrint('   - Is Processing: $isProcessing');
+                              _processingOrders[order.pkMerchantOrderId] ?? false;
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -436,6 +443,9 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
                         },
                       ),
                     ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -19,6 +19,7 @@ class MerchantOrderModel {
   final String pickupAddress;
   final String businessName;
   final String merchantPhoneNumber;
+  final int fkShipmentStatusId;
 
   MerchantOrderModel({
     required this.pkMerchantOrderId,
@@ -39,6 +40,7 @@ class MerchantOrderModel {
     required this.pickupAddress,
     required this.businessName,
     required this.merchantPhoneNumber,
+    required this.fkShipmentStatusId,
   });
 
   factory MerchantOrderModel.fromJson(Map<String, dynamic> json) {
@@ -71,6 +73,7 @@ class MerchantOrderModel {
       pickupAddress: json['pickupAddress'] ?? '',
       businessName: json['businessName'] ?? '',
       merchantPhoneNumber: json['merchantPhoneNumber'] ?? '',
+      fkShipmentStatusId: json['fk_ShipmentStatusId'] ?? json['fkShipmentStatusId'] ?? 0,
     );
     
     debugPrint('📦 [MerchantOrderModel] Parsed model:');
@@ -103,6 +106,7 @@ class MerchantOrderModel {
       'pickupAddress': pickupAddress,
       'businessName': businessName,
       'merchantPhoneNumber': merchantPhoneNumber,
+      'fk_ShipmentStatusId': fkShipmentStatusId,
     };
   }
 }

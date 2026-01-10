@@ -11,11 +11,21 @@ class DeliveryService {
   /// Get authorization headers with access token
   Future<Map<String, String>> _getHeaders() async {
     final token = await _storageService.getAccessToken();
-    return {
+    final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
     };
+    
+    // Debug: Log if token is being sent
+    if (token != null) {
+      debugPrint('🔐 [DeliveryService] Bearer token found: ${token.substring(0, 20)}...');
+      debugPrint('🔐 [DeliveryService] Authorization header: Bearer ${token.substring(0, 20)}...');
+    } else {
+      debugPrint('⚠️ [DeliveryService] No Bearer token found!');
+    }
+    
+    return headers;
   }
 
   /// Change shipment status

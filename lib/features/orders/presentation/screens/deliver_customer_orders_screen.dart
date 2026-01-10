@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/shipment_status_enum.dart';
 import '../../../../core/constants/entity_type_enum.dart';
@@ -27,7 +28,6 @@ class _DeliverCustomerOrdersScreenState
   final Map<String, bool> _processingOrders = {};
   final Map<String, bool> _journeyStarted = {};
   final TextEditingController _otpController = TextEditingController();
-  CustomerOrderModel? _currentOrderForOtp;
 
   @override
   void initState() {
@@ -39,6 +39,37 @@ class _DeliverCustomerOrdersScreenState
   void dispose() {
     _otpController.dispose();
     super.dispose();
+  }
+
+  /// Format date from ISO string to readable format
+  String _formatDate(String dateString) {
+    try {
+      // Handle ISO format: 2025-12-15T14:29:37.227
+      DateTime dateTime;
+      if (dateString.contains('T')) {
+        // Remove milliseconds if present
+        final cleanDate = dateString.split('.')[0];
+        dateTime = DateTime.parse(cleanDate);
+      } else {
+        dateTime = DateTime.parse(dateString);
+      }
+      
+      // Format: "15 Dec 2025, 2:29 PM"
+      final dateFormat = DateFormat('d MMM yyyy, h:mm a', 'en_US');
+      return dateFormat.format(dateTime);
+    } catch (e) {
+      debugPrint('❌ [DeliverCustomerOrdersScreen] Error formatting date: $e');
+      // Return original if parsing fails
+      return dateString;
+    }
+  }
+
+  /// Get formatted address or placeholder
+  String _getFormattedAddress(String address) {
+    if (address.isEmpty || address.toLowerCase() == 'none' || address.trim().isEmpty) {
+      return 'Address not available';
+    }
+    return address;
   }
 
   Future<void> _loadOrders() async {
@@ -89,15 +120,18 @@ class _DeliverCustomerOrdersScreenState
     });
 
     try {
+      // Flow 2 Step B: "Rider is on the way" - When rider leaves branch with parcel
+      // Status: 11 (Rider is on the way to deliver)
+      // From: Branch, To: Customer
       final request = EventLogRequestModel(
         fkMerchantOrderId: order.pkMerchantOrderId,
-        fkStatusId: ShipmentStatusEnum.riderIsOnTheWayToDeliver,
+        fkStatusId: ShipmentStatusEnum.riderIsOnTheWayToDeliver, // Status 11: "Rider is on the way"
         fkFromEntityTypeId: EntityTypeEnum.branch, // From branch
         fkToEntityTypeId: EntityTypeEnum.customer, // To customer
         fkFromEntityId: order.fkFromEntityId, // Branch entity ID
-        fkToEntityId: order.fkFromEntityId, // Customer entity ID
+        fkToEntityId: '', // Customer entity ID - backend will determine from order
         fkRiderId: riderId,
-        fkUpdatedByEntityTypeId: 4175, // Updated by rider
+        fkUpdatedByEntityTypeId: EntityTypeEnum.rider, // Updated by Rider (4)
         fkUpdatedBy: riderId,
       );
 
@@ -140,7 +174,6 @@ class _DeliverCustomerOrdersScreenState
   }
 
   void _showVerifyOtpDialog(CustomerOrderModel order) {
-    _currentOrderForOtp = order;
     _otpController.clear();
     showDialog(
       context: context,
@@ -161,7 +194,7 @@ class _DeliverCustomerOrdersScreenState
           content: TextField(
             controller: _otpController,
             keyboardType: TextInputType.number,
-            maxLength: 6,
+            maxLength: 4,
             decoration: InputDecoration(
               labelText: 'Enter OTP',
               labelStyle: TextStyle(
@@ -202,7 +235,7 @@ class _DeliverCustomerOrdersScreenState
             ),
             ElevatedButton(
               onPressed: () async {
-                if (_otpController.text.length == 6) {
+                if (_otpController.text.length == 4) {
                   final otp = int.tryParse(_otpController.text);
                   if (otp == null) {
                     if (context.mounted) {
@@ -221,7 +254,7 @@ class _DeliverCustomerOrdersScreenState
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Please enter a valid 6-digit OTP'),
+                      content: Text('Please enter a valid 4-digit OTP'),
                       backgroundColor: AppColors.black,
                     ),
                   );
@@ -286,9 +319,26 @@ class _DeliverCustomerOrdersScreenState
   }
 
   void _showOrderDetailsDialog(CustomerOrderModel order) {
-    String selectedPaymentMethod = order.paymentMethod.isNotEmpty
-        ? order.paymentMethod
-        : 'Cash';
+    // Map backend payment methods to dropdown values
+    String _mapPaymentMethod(String paymentMethod) {
+      if (paymentMethod.isEmpty) return 'Cash';
+      // Map "Cash on Delivery" to "Cash"
+      if (paymentMethod.toLowerCase().contains('cash') || 
+          paymentMethod.toLowerCase().contains('cod')) {
+        return 'Cash';
+      }
+      if (paymentMethod.toLowerCase().contains('card')) {
+        return 'Card';
+      }
+      if (paymentMethod.toLowerCase().contains('online') || 
+          paymentMethod.toLowerCase().contains('prepaid')) {
+        return 'Online';
+      }
+      // Default to Cash if unknown
+      return 'Cash';
+    }
+
+    String selectedPaymentMethod = _mapPaymentMethod(order.paymentMethod);
 
     showDialog(
       context: context,
@@ -449,15 +499,18 @@ class _DeliverCustomerOrdersScreenState
     });
 
     try {
+      // Flow 2 Step D: "Received by Customer" - After OTP verification, rider hands over package
+      // Status: 6 (Received by Customer)
+      // From: Branch, To: Customer
       final request = EventLogRequestModel(
         fkMerchantOrderId: order.pkMerchantOrderId,
-        fkStatusId: ShipmentStatusEnum.receivedByCustomer,
+        fkStatusId: ShipmentStatusEnum.receivedByCustomer, // Status 6: "Received by Customer"
         fkFromEntityTypeId: EntityTypeEnum.branch, // From branch
         fkToEntityTypeId: EntityTypeEnum.customer, // To customer
         fkFromEntityId: order.fkFromEntityId, // Branch entity ID
-        fkToEntityId: order.fkFromEntityId, // Customer entity ID
+        fkToEntityId: '', // Customer entity ID - backend will determine from order
         fkRiderId: riderId,
-        fkUpdatedByEntityTypeId: 4175, // Updated by rider
+        fkUpdatedByEntityTypeId: EntityTypeEnum.rider, // Updated by Rider (4)
         fkUpdatedBy: riderId,
       );
 
@@ -599,15 +652,18 @@ class _DeliverCustomerOrdersScreenState
     });
 
     try {
+      // Flow 2 - Return: When delivery fails (Customer Not Found or Not Accepted)
+      // Status: 12 (Customer Not Found) or 7 (Customer Did Not Accept)
+      // From: Customer, To: Branch
       final request = EventLogRequestModel(
         fkMerchantOrderId: order.pkMerchantOrderId,
-        fkStatusId: statusId,
+        fkStatusId: statusId, // Status 12 or 7
         fkFromEntityTypeId: EntityTypeEnum.customer, // From customer
         fkToEntityTypeId: EntityTypeEnum.branch, // To branch
-        fkFromEntityId: order.fkFromEntityId, // Customer entity ID
+        fkFromEntityId: '', // Customer entity ID - backend will determine
         fkToEntityId: order.fkFromEntityId, // Branch entity ID
         fkRiderId: riderId,
-        fkUpdatedByEntityTypeId: 4175, // Updated by rider
+        fkUpdatedByEntityTypeId: EntityTypeEnum.rider, // Updated by Rider (4)
         fkUpdatedBy: riderId,
       );
 
@@ -743,7 +799,7 @@ class _DeliverCustomerOrdersScreenState
                                       ),
                                     ),
                                     Text(
-                                      order.orderDate,
+                                      _formatDate(order.orderDate),
                                       style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w400,
@@ -790,7 +846,7 @@ class _DeliverCustomerOrdersScreenState
                                 Padding(
                                   padding: const EdgeInsets.only(left: 24.0),
                                   child: Text(
-                                    order.deliveryAddress,
+                                    _getFormattedAddress(order.deliveryAddress),
                                     style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w300,
