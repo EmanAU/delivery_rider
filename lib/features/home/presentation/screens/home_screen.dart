@@ -5,7 +5,6 @@ import '../../../../core/services/storage_service.dart';
 import '../../../orders/presentation/screens/merchant_orders_screen.dart';
 import '../../../orders/presentation/screens/deliver_customer_orders_screen.dart';
 import '../../../orders/presentation/screens/returns_merchant_orders_screen.dart';
-import '../../../orders/presentation/screens/pick_order_branch_screen.dart';
 import '../../../auth/presentation/screens/login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -268,19 +267,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 MaterialPageRoute(
                                   builder: (context) =>
                                       const ReturnsMerchantOrdersScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                          _buildOptionCard(
-                            context,
-                            title: 'Pick Order from Branch',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const PickOrderBranchScreen(),
                                 ),
                               );
                             },

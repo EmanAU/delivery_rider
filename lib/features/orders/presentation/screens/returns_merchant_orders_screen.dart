@@ -150,13 +150,14 @@ class _ReturnsMerchantOrdersScreenState
       // Flow 3 Step 2: "Rider return to merchant" - Rider picks up return parcel from Branch/Hub
       // Status: 17 (Rider return to merchant)
       // From: Branch/Hub (determined from order.fromEntityName), To: Merchant
+      // fk_ToEntityTypeId should be Merchant (from order body), not Customer
       final fromEntityTypeId = _getEntityTypeIdFromName(order.fromEntityName);
       final request = EventLogRequestModel(
         fkMerchantOrderId: order.pkMerchantOrderId,
         fkStatusId: ShipmentStatusEnum
             .riderReturnToMerchant, // Status 17: "Rider return to merchant"
         fkFromEntityTypeId: fromEntityTypeId, // From branch/hub (determined dynamically)
-        fkToEntityTypeId: EntityTypeEnum.customer, // To merchant (5 - merchant uses customer entity type)
+        fkToEntityTypeId: order.fkToEntityTypeId ?? EntityTypeEnum.customer, // To merchant (from order body)
         fkFromEntityId: order.fkFromEntityId, // Branch/Hub entity ID
         fkToEntityId: order.fkMerchantId, // Merchant ID
         fkRiderId: riderId,
@@ -238,16 +239,16 @@ class _ReturnsMerchantOrdersScreenState
     try {
       // Flow 3 Step 3: "Returned to merchant" - Rider hands parcel back to Merchant
       // Status: 18 (Returned to merchant)
-      // From: Rider (parcel is with rider after Status 17), To: Merchant
-      // Note: Based on enums.md, Merchant uses Customer entity type (5)
-      // Note: Status 17 (Branch/Hub → Rider) works, so Status 18 should be Rider → Merchant
+      // From: Branch/Hub (from order body), To: Merchant
+      // fk_FromEntityTypeId should be Branch/Hub (from order body), not Rider
+      final fromEntityTypeId = _getEntityTypeIdFromName(order.fromEntityName);
       final request = EventLogRequestModel(
         fkMerchantOrderId: order.pkMerchantOrderId,
         fkStatusId: ShipmentStatusEnum
             .returnedToMerchant, // Status 18: "Returned to merchant"
-        fkFromEntityTypeId: EntityTypeEnum.rider, // From rider (4 - parcel is with rider after Status 18)
-        fkToEntityTypeId: EntityTypeEnum.customer, // To merchant (5 - merchant uses customer entity type per enums.md)
-        fkFromEntityId: riderId, // Rider ID (parcel is with this rider)
+        fkFromEntityTypeId: order.fkFromEntityTypeId ?? fromEntityTypeId, // From Branch/Hub (from order body)
+        fkToEntityTypeId: order.fkToEntityTypeId ?? EntityTypeEnum.customer, // To merchant (from order body)
+        fkFromEntityId: order.fkFromEntityId, // Branch/Hub entity ID
         fkToEntityId: order.fkMerchantId, // Merchant ID
         fkRiderId: riderId,
         fkUpdatedByEntityTypeId: EntityTypeEnum.rider, // Updated by Rider (4)

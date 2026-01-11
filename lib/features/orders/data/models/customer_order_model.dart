@@ -24,6 +24,9 @@ class CustomerOrderModel {
   final String paymentMethod;
   final bool isReturnable;
   final int fkShipmentStatusId;
+  final int? fkFromEntityTypeId;
+  final int? fkToEntityTypeId;
+  final String? fkToEntityId;
 
   CustomerOrderModel({
     required this.pkMerchantOrderId,
@@ -51,6 +54,9 @@ class CustomerOrderModel {
     required this.paymentMethod,
     required this.isReturnable,
     required this.fkShipmentStatusId,
+    this.fkFromEntityTypeId,
+    this.fkToEntityTypeId,
+    this.fkToEntityId,
   });
 
   factory CustomerOrderModel.fromJson(Map<String, dynamic> json) {
@@ -80,6 +86,9 @@ class CustomerOrderModel {
       paymentMethod: json['paymentMethod'] ?? '',
       isReturnable: json['isReturnable'] ?? false,
       fkShipmentStatusId: json['fk_ShipmentStatusId'] ?? json['fkShipmentStatusId'] ?? 0,
+      fkFromEntityTypeId: json['fk_FromEntityTypeId'] ?? json['fkFromEntityTypeId'],
+      fkToEntityTypeId: json['fk_ToEntityTypeId'] ?? json['fkToEntityTypeId'],
+      fkToEntityId: json['fk_ToEntityId'] ?? json['fkToEntityId'],
     );
   }
 
@@ -110,6 +119,9 @@ class CustomerOrderModel {
       'paymentMethod': paymentMethod,
       'isReturnable': isReturnable,
       'fk_ShipmentStatusId': fkShipmentStatusId,
+      'fk_FromEntityTypeId': fkFromEntityTypeId,
+      'fk_ToEntityTypeId': fkToEntityTypeId,
+      'fk_ToEntityId': fkToEntityId,
     };
   }
 }

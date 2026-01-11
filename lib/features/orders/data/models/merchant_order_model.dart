@@ -20,6 +20,8 @@ class MerchantOrderModel {
   final String businessName;
   final String merchantPhoneNumber;
   final int fkShipmentStatusId;
+  final int? fkFromEntityTypeId;
+  final String? fkToEntityId;
 
   MerchantOrderModel({
     required this.pkMerchantOrderId,
@@ -41,6 +43,8 @@ class MerchantOrderModel {
     required this.businessName,
     required this.merchantPhoneNumber,
     required this.fkShipmentStatusId,
+    this.fkFromEntityTypeId,
+    this.fkToEntityId,
   });
 
   factory MerchantOrderModel.fromJson(Map<String, dynamic> json) {
@@ -74,6 +78,8 @@ class MerchantOrderModel {
       businessName: json['businessName'] ?? '',
       merchantPhoneNumber: json['merchantPhoneNumber'] ?? '',
       fkShipmentStatusId: json['fk_ShipmentStatusId'] ?? json['fkShipmentStatusId'] ?? 0,
+      fkFromEntityTypeId: json['fk_FromEntityTypeId'] ?? json['fkFromEntityTypeId'],
+      fkToEntityId: json['fk_ToEntityId'] ?? json['fkToEntityId'],
     );
     
     debugPrint('📦 [MerchantOrderModel] Parsed model:');
@@ -107,6 +113,8 @@ class MerchantOrderModel {
       'businessName': businessName,
       'merchantPhoneNumber': merchantPhoneNumber,
       'fk_ShipmentStatusId': fkShipmentStatusId,
+      'fk_FromEntityTypeId': fkFromEntityTypeId,
+      'fk_ToEntityId': fkToEntityId,
     };
   }
 }
