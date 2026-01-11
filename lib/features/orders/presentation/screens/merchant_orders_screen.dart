@@ -159,10 +159,12 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
         fkMerchantOrderId: order.pkMerchantOrderId,
         fkStatusId:
             ShipmentStatusEnum.pickedByRider, // Status 10: "Picked by Rider"
-        fkFromEntityTypeId: order.fkFromEntityTypeId ?? EntityTypeEnum.customer, // From Merchant (from order body)
+        fkFromEntityTypeId: order.fkFromEntityTypeId ??
+            EntityTypeEnum.merchant, // From Merchant (from order body)
         fkToEntityTypeId: EntityTypeEnum.branch, // To Branch
         fkFromEntityId: order.fkMerchantId, // Merchant ID
-        fkToEntityId: order.fkToEntityId ?? '', // Branch/Hub ID (from order body)
+        fkToEntityId:
+            order.fkToEntityId ?? '', // Branch/Hub ID (from order body)
         fkRiderId: riderId,
         fkUpdatedByEntityTypeId: EntityTypeEnum.rider, // Updated by Rider
         fkUpdatedBy: riderId,

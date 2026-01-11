@@ -99,19 +99,20 @@ class _ReturnsMerchantOrdersScreenState
 
       final newOrders =
           await _orderService.getBranchToMerchantReturnOrders(riderId);
-      
+
       // Preserve orders that are in progress (picked up but not yet returned)
       // These orders have status 17 (Rider return to merchant) and won't be returned by API
-      final inProgressOrders = _orders.where((order) => 
-        _pickedUp[order.pkMerchantOrderId] == true
-      ).toList();
-      
+      final inProgressOrders = _orders
+          .where((order) => _pickedUp[order.pkMerchantOrderId] == true)
+          .toList();
+
       // Merge new orders with in-progress orders, avoiding duplicates
-      final existingOrderIds = newOrders.map((o) => o.pkMerchantOrderId).toSet();
-      final uniqueInProgressOrders = inProgressOrders.where((order) => 
-        !existingOrderIds.contains(order.pkMerchantOrderId)
-      ).toList();
-      
+      final existingOrderIds =
+          newOrders.map((o) => o.pkMerchantOrderId).toSet();
+      final uniqueInProgressOrders = inProgressOrders
+          .where((order) => !existingOrderIds.contains(order.pkMerchantOrderId))
+          .toList();
+
       setState(() {
         _orders = [...newOrders, ...uniqueInProgressOrders];
         _isLoading = false;
@@ -156,8 +157,10 @@ class _ReturnsMerchantOrdersScreenState
         fkMerchantOrderId: order.pkMerchantOrderId,
         fkStatusId: ShipmentStatusEnum
             .riderReturnToMerchant, // Status 17: "Rider return to merchant"
-        fkFromEntityTypeId: fromEntityTypeId, // From branch/hub (determined dynamically)
-        fkToEntityTypeId: order.fkToEntityTypeId ?? EntityTypeEnum.customer, // To merchant (from order body)
+        fkFromEntityTypeId:
+            fromEntityTypeId, // From branch/hub (determined dynamically)
+        fkToEntityTypeId: order.fkToEntityTypeId ??
+            EntityTypeEnum.merchant, // To merchant (from order body)
         fkFromEntityId: order.fkFromEntityId, // Branch/Hub entity ID
         fkToEntityId: order.fkMerchantId, // Merchant ID
         fkRiderId: riderId,
@@ -246,8 +249,10 @@ class _ReturnsMerchantOrdersScreenState
         fkMerchantOrderId: order.pkMerchantOrderId,
         fkStatusId: ShipmentStatusEnum
             .returnedToMerchant, // Status 18: "Returned to merchant"
-        fkFromEntityTypeId: order.fkFromEntityTypeId ?? fromEntityTypeId, // From Branch/Hub (from order body)
-        fkToEntityTypeId: order.fkToEntityTypeId ?? EntityTypeEnum.customer, // To merchant (from order body)
+        fkFromEntityTypeId: order.fkFromEntityTypeId ??
+            fromEntityTypeId, // From Branch/Hub (from order body)
+        fkToEntityTypeId: order.fkToEntityTypeId ??
+            EntityTypeEnum.merchant, // To merchant (from order body)
         fkFromEntityId: order.fkFromEntityId, // Branch/Hub entity ID
         fkToEntityId: order.fkMerchantId, // Merchant ID
         fkRiderId: riderId,
@@ -262,7 +267,8 @@ class _ReturnsMerchantOrdersScreenState
           setState(() {
             _toastMessage = 'Order returned to merchant successfully';
             // Remove the order from the list after successful return
-            _orders.removeWhere((o) => o.pkMerchantOrderId == order.pkMerchantOrderId);
+            _orders.removeWhere(
+                (o) => o.pkMerchantOrderId == order.pkMerchantOrderId);
             _pickedUp.remove(order.pkMerchantOrderId);
           });
           // Hide toast after 3 seconds
