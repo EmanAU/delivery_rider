@@ -4,6 +4,7 @@ import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/shipment_status_enum.dart';
 import '../../../../core/constants/entity_type_enum.dart';
 import '../../../../core/services/storage_service.dart';
+import '../../../../core/utils/network_error_handler.dart';
 import '../../data/models/customer_order_model.dart';
 import '../../data/services/order_service.dart';
 import '../../data/services/delivery_service.dart';
@@ -112,7 +113,7 @@ class _DeliverCustomerOrdersScreenState
       });
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _errorMessage = NetworkErrorHandler.getErrorMessage(e);
         _isLoading = false;
       });
     }
@@ -186,16 +187,7 @@ class _DeliverCustomerOrdersScreenState
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _toastMessage = e.toString().replaceAll('Exception: ', '');
-        });
-        Future.delayed(const Duration(seconds: 3), () {
-          if (mounted) {
-            setState(() {
-              _toastMessage = null;
-            });
-          }
-        });
+        _showToast(NetworkErrorHandler.getErrorMessage(e), isSuccess: false);
       }
     } finally {
       setState(() {
@@ -531,7 +523,7 @@ class _DeliverCustomerOrdersScreenState
       }
     } catch (e) {
       if (mounted) {
-        _showToast(e.toString().replaceAll('Exception: ', ''), isSuccess: false);
+        _showToast(NetworkErrorHandler.getErrorMessage(e), isSuccess: false);
       }
     } finally {
       setState(() {
@@ -664,7 +656,7 @@ class _DeliverCustomerOrdersScreenState
       }
     } catch (e) {
       if (mounted) {
-        _showToast(e.toString().replaceAll('Exception: ', ''), isSuccess: false);
+        _showToast(NetworkErrorHandler.getErrorMessage(e), isSuccess: false);
       }
     } finally {
       setState(() {

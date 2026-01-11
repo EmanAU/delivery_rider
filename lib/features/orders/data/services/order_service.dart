@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/services/storage_service.dart';
+import '../../../../core/utils/network_error_handler.dart';
 import '../models/merchant_order_model.dart';
 import '../models/customer_order_model.dart';
 
@@ -98,8 +100,18 @@ class OrderService {
         debugPrint('❌ [OrderService] Request failed: ${response.statusCode}');
         throw Exception('Failed to fetch orders. Status: ${response.statusCode}');
       }
+    } on SocketException catch (e) {
+      debugPrint('❌ [OrderService] Network error: $e');
+      throw Exception(NetworkErrorHandler.getErrorMessage(e));
+    } on http.ClientException catch (e) {
+      debugPrint('❌ [OrderService] Network error: $e');
+      throw Exception(NetworkErrorHandler.getErrorMessage(e));
     } catch (e) {
       debugPrint('❌ [OrderService] Error: $e');
+      // Check if it's a network error and return user-friendly message
+      if (NetworkErrorHandler.isNetworkError(e)) {
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+      }
       rethrow;
     }
   }
@@ -152,8 +164,18 @@ class OrderService {
         debugPrint('❌ [OrderService] Request failed: ${response.statusCode}');
         throw Exception('Failed to fetch orders. Status: ${response.statusCode}');
       }
+    } on SocketException catch (e) {
+      debugPrint('❌ [OrderService] Network error: $e');
+      throw Exception(NetworkErrorHandler.getErrorMessage(e));
+    } on http.ClientException catch (e) {
+      debugPrint('❌ [OrderService] Network error: $e');
+      throw Exception(NetworkErrorHandler.getErrorMessage(e));
     } catch (e) {
       debugPrint('❌ [OrderService] Error: $e');
+      // Check if it's a network error and return user-friendly message
+      if (NetworkErrorHandler.isNetworkError(e)) {
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+      }
       rethrow;
     }
   }
@@ -206,8 +228,18 @@ class OrderService {
         debugPrint('❌ [OrderService] Request failed: ${response.statusCode}');
         throw Exception('Failed to fetch orders. Status: ${response.statusCode}');
       }
+    } on SocketException catch (e) {
+      debugPrint('❌ [OrderService] Network error: $e');
+      throw Exception(NetworkErrorHandler.getErrorMessage(e));
+    } on http.ClientException catch (e) {
+      debugPrint('❌ [OrderService] Network error: $e');
+      throw Exception(NetworkErrorHandler.getErrorMessage(e));
     } catch (e) {
       debugPrint('❌ [OrderService] Error: $e');
+      // Check if it's a network error and return user-friendly message
+      if (NetworkErrorHandler.isNetworkError(e)) {
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+      }
       rethrow;
     }
   }

@@ -125,22 +125,24 @@ class _LoginScreenState extends State<LoginScreen> {
 
         // Extract user-friendly error message
         String errorMessage = 'Login failed';
-        final errorString = e.toString();
+        final errorString = e.toString().toLowerCase();
         debugPrint('🚀 [LoginScreen] Processing error message: $errorString');
 
-        if (errorString.contains('timeout')) {
-          errorMessage =
-              'Connection timeout. Please check your internet connection.';
-        } else if (errorString.contains('Network error') ||
-            errorString.contains('internet connection')) {
-          errorMessage =
-              'Network error. Please check your internet connection.';
-        } else if (errorString.contains('Server error')) {
+        // Check for network errors first
+        if (errorString.contains('no internet connection') ||
+            errorString.contains('network error') ||
+            errorString.contains('internet connection') ||
+            errorString.contains('socketfailed') ||
+            errorString.contains('host lookup') ||
+            errorString.contains('no address associated')) {
+          errorMessage = 'No internet connection';
+        } else if (errorString.contains('timeout')) {
+          errorMessage = 'Connection timeout. Please check your internet connection.';
+        } else if (errorString.contains('server error')) {
           errorMessage = 'Server error. Please try again later.';
-        } else if (errorString.contains('Invalid')) {
-          errorMessage = errorString.replaceAll('Exception: ', '');
         } else {
-          errorMessage = errorString.replaceAll('Exception: ', '');
+          // Remove "Exception: " prefix if present
+          errorMessage = e.toString().replaceAll('Exception: ', '');
         }
 
         debugPrint('🚀 [LoginScreen] Showing error toast: $errorMessage');

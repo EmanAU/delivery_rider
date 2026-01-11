@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/utils/network_error_handler.dart';
 import '../models/login_request_model.dart';
 import '../models/login_response_model.dart';
 
@@ -103,18 +105,29 @@ class AuthService {
           'Request failed with status code: ${response.statusCode}',
         );
       }
+    } on SocketException catch (e) {
+      debugPrint('❌ [AuthService] Network error: $e');
+      throw Exception(NetworkErrorHandler.getErrorMessage(e));
     } on http.ClientException catch (e) {
       debugPrint('❌ [AuthService] Network/Client exception: $e');
-      throw Exception('Network error. Please check your internet connection.');
+      throw Exception(NetworkErrorHandler.getErrorMessage(e));
     } on FormatException catch (e) {
       debugPrint('❌ [AuthService] Format exception: $e');
       throw Exception('Invalid response format from server.');
     } on Exception catch (e) {
       debugPrint('❌ [AuthService] Exception: $e');
+      // Check if it's a network error and return user-friendly message
+      if (NetworkErrorHandler.isNetworkError(e)) {
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+      }
       // Re-throw our custom exceptions
       rethrow;
     } catch (e) {
       debugPrint('❌ [AuthService] Unexpected error: $e');
+      // Check if it's a network error
+      if (NetworkErrorHandler.isNetworkError(e)) {
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+      }
       throw Exception('An unexpected error occurred: ${e.toString()}');
     }
   }

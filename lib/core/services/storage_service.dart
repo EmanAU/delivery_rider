@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/jwt_helper.dart';
+import '../utils/network_error_handler.dart';
 
 class StorageService {
   static const String _accessTokenKey = 'access_token';
@@ -54,7 +55,11 @@ class StorageService {
       debugPrint('✅ [StorageService] All login data saved successfully');
     } catch (e) {
       debugPrint('❌ [StorageService] Error saving login data: $e');
-      throw Exception('Storage error: ${e.toString()}');
+      // Check if it's a network error (unlikely for storage, but handle it)
+      if (NetworkErrorHandler.isNetworkError(e)) {
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+      }
+      throw Exception('Failed to save data. Please try again.');
     }
   }
 

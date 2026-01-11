@@ -4,6 +4,7 @@ import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/shipment_status_enum.dart';
 import '../../../../core/constants/entity_type_enum.dart';
 import '../../../../core/services/storage_service.dart';
+import '../../../../core/utils/network_error_handler.dart';
 import '../../data/models/merchant_order_model.dart';
 import '../../data/services/order_service.dart';
 import '../../data/services/delivery_service.dart';
@@ -119,14 +120,14 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
       });
       debugPrint(
           '✅ [MerchantOrdersScreen] Orders loaded successfully. Total: ${_orders.length}');
-    } catch (e) {
-      debugPrint('❌ [MerchantOrdersScreen] Error loading orders: $e');
-      debugPrint('❌ [MerchantOrdersScreen] Error type: ${e.runtimeType}');
-      setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
-        _isLoading = false;
-      });
-    }
+      } catch (e) {
+        debugPrint('❌ [MerchantOrdersScreen] Error loading orders: $e');
+        debugPrint('❌ [MerchantOrdersScreen] Error type: ${e.runtimeType}');
+        setState(() {
+          _errorMessage = NetworkErrorHandler.getErrorMessage(e);
+          _isLoading = false;
+        });
+      }
   }
 
   Future<void> _handleReceive(MerchantOrderModel order) async {
@@ -205,7 +206,7 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _toastMessage = e.toString().replaceAll('Exception: ', '');
+          _toastMessage = NetworkErrorHandler.getErrorMessage(e);
         });
         Future.delayed(const Duration(seconds: 3), () {
           if (mounted) {

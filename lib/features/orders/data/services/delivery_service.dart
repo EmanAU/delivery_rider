@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/services/storage_service.dart';
+import '../../../../core/utils/network_error_handler.dart';
 import '../models/event_log_request_model.dart';
 
 class DeliveryService {
@@ -87,8 +89,18 @@ class DeliveryService {
         debugPrint('❌ [DeliveryService] Request failed: ${response.statusCode}');
         throw Exception('Failed to update status. Status: ${response.statusCode}');
       }
+    } on SocketException catch (e) {
+      debugPrint('❌ [DeliveryService] Network error: $e');
+      throw Exception(NetworkErrorHandler.getErrorMessage(e));
+    } on http.ClientException catch (e) {
+      debugPrint('❌ [DeliveryService] Network error: $e');
+      throw Exception(NetworkErrorHandler.getErrorMessage(e));
     } catch (e) {
       debugPrint('❌ [DeliveryService] Error: $e');
+      // Check if it's a network error and return user-friendly message
+      if (NetworkErrorHandler.isNetworkError(e)) {
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+      }
       rethrow;
     }
   }
@@ -138,8 +150,18 @@ class DeliveryService {
         debugPrint('❌ [DeliveryService] Request failed: ${response.statusCode}');
         throw Exception('Failed to verify OTP. Status: ${response.statusCode}');
       }
+    } on SocketException catch (e) {
+      debugPrint('❌ [DeliveryService] Network error: $e');
+      throw Exception(NetworkErrorHandler.getErrorMessage(e));
+    } on http.ClientException catch (e) {
+      debugPrint('❌ [DeliveryService] Network error: $e');
+      throw Exception(NetworkErrorHandler.getErrorMessage(e));
     } catch (e) {
       debugPrint('❌ [DeliveryService] Error: $e');
+      // Check if it's a network error and return user-friendly message
+      if (NetworkErrorHandler.isNetworkError(e)) {
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+      }
       rethrow;
     }
   }
