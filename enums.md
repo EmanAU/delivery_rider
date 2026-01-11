@@ -1,15 +1,8 @@
-namespace Models.Enums
-{
-    public enum EntityTypeEnum : int
-    {
-        Branch = 2,
-        Hub = 3,
-        Rider = 4,
-        Customer = 5
-    }
-}
-
----------------------
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Models.Enums
 {
@@ -29,9 +22,9 @@ namespace Models.Enums
         CustomerNotFound = 12,
         ReturnedToBranch = 13,
         ReturnedToHub = 14,
-        ReceivedReturnedOrderAtBranch = 16,
-        ReceivedReturnedOrderAtHub = 17,
-        RiderReturnToMerchent = 18,
-        ReturnedToMerchant = 19
+        ReceivedReturnedOrderAtBranch = 15,
+        ReceivedReturnedOrderAtHub = 16,
+        RiderReturnOrderToMerchant = 17,
+        ReturnedToMerchant = 18
     }
 }

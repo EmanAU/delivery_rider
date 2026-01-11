@@ -133,12 +133,16 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
     final riderId = await _storageService.getRiderId();
     if (riderId == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to get rider ID. Please login again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(() {
+          _toastMessage = 'Unable to get rider ID. Please login again.';
+        });
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _toastMessage = null;
+            });
+          }
+        });
       }
       return;
     }
@@ -196,12 +200,16 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(() {
+          _toastMessage = e.toString().replaceAll('Exception: ', '');
+        });
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _toastMessage = null;
+            });
+          }
+        });
       }
     } finally {
       setState(() {

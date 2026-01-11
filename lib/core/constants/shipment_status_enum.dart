@@ -14,9 +14,9 @@ class ShipmentStatusEnum {
   static const int customerNotFound = 12;
   static const int returnedToBranch = 13;
   static const int returnedToHub = 14;
-  static const int receivedReturnedOrderAtBranch = 16;
-  static const int receivedReturnedOrderAtHub = 17;
-  static const int riderReturnToMerchant = 18;
-  static const int returnedToMerchant = 19;
+  static const int receivedReturnedOrderAtBranch = 15;
+  static const int receivedReturnedOrderAtHub = 16;
+  static const int riderReturnToMerchant = 17;
+  static const int returnedToMerchant = 18;
 }
 

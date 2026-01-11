@@ -62,6 +62,19 @@ class _ReturnsMerchantOrdersScreenState
     return address;
   }
 
+  /// Get entity type ID based on entity name
+  int _getEntityTypeIdFromName(String entityName) {
+    final name = entityName.toLowerCase().trim();
+    if (name == 'hub') {
+      return EntityTypeEnum.hub; // 3
+    } else if (name == 'branch') {
+      return EntityTypeEnum.branch; // 2
+    } else {
+      // Default to branch if unknown
+      return EntityTypeEnum.branch; // 2
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -88,7 +101,7 @@ class _ReturnsMerchantOrdersScreenState
           await _orderService.getBranchToMerchantReturnOrders(riderId);
       
       // Preserve orders that are in progress (picked up but not yet returned)
-      // These orders have status 18 (Rider return to merchant) and won't be returned by API
+      // These orders have status 17 (Rider return to merchant) and won't be returned by API
       final inProgressOrders = _orders.where((order) => 
         _pickedUp[order.pkMerchantOrderId] == true
       ).toList();
@@ -115,12 +128,16 @@ class _ReturnsMerchantOrdersScreenState
     final riderId = await _storageService.getRiderId();
     if (riderId == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to get rider ID. Please login again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(() {
+          _toastMessage = 'Unable to get rider ID. Please login again.';
+        });
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _toastMessage = null;
+            });
+          }
+        });
       }
       return;
     }
@@ -130,16 +147,17 @@ class _ReturnsMerchantOrdersScreenState
     });
 
     try {
-      // Flow 3 Step 2: "Rider return to merchant" - Rider picks up return parcel from Branch
-      // Status: 18 (Rider return to merchant)
-      // From: Branch, To: Merchant
+      // Flow 3 Step 2: "Rider return to merchant" - Rider picks up return parcel from Branch/Hub
+      // Status: 17 (Rider return to merchant)
+      // From: Branch/Hub (determined from order.fromEntityName), To: Merchant
+      final fromEntityTypeId = _getEntityTypeIdFromName(order.fromEntityName);
       final request = EventLogRequestModel(
         fkMerchantOrderId: order.pkMerchantOrderId,
         fkStatusId: ShipmentStatusEnum
-            .riderReturnToMerchant, // Status 18: "Rider return to merchant"
-        fkFromEntityTypeId: EntityTypeEnum.branch, // From branch (2)
+            .riderReturnToMerchant, // Status 17: "Rider return to merchant"
+        fkFromEntityTypeId: fromEntityTypeId, // From branch/hub (determined dynamically)
         fkToEntityTypeId: EntityTypeEnum.customer, // To merchant (5 - merchant uses customer entity type)
-        fkFromEntityId: order.fkFromEntityId, // Branch entity ID
+        fkFromEntityId: order.fkFromEntityId, // Branch/Hub entity ID
         fkToEntityId: order.fkMerchantId, // Merchant ID
         fkRiderId: riderId,
         fkUpdatedByEntityTypeId: EntityTypeEnum.rider, // Updated by Rider (4)
@@ -177,12 +195,16 @@ class _ReturnsMerchantOrdersScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(() {
+          _toastMessage = e.toString().replaceAll('Exception: ', '');
+        });
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _toastMessage = null;
+            });
+          }
+        });
       }
     } finally {
       setState(() {
@@ -195,12 +217,16 @@ class _ReturnsMerchantOrdersScreenState
     final riderId = await _storageService.getRiderId();
     if (riderId == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to get rider ID. Please login again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(() {
+          _toastMessage = 'Unable to get rider ID. Please login again.';
+        });
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _toastMessage = null;
+            });
+          }
+        });
       }
       return;
     }
@@ -211,18 +237,18 @@ class _ReturnsMerchantOrdersScreenState
 
     try {
       // Flow 3 Step 3: "Returned to merchant" - Rider hands parcel back to Merchant
-      // Status: 19 (Returned to merchant)
-      // From: Branch (where parcel was picked up from), To: Merchant
+      // Status: 18 (Returned to merchant)
+      // From: Rider (parcel is with rider after Status 17), To: Merchant
       // Note: Based on enums.md, Merchant uses Customer entity type (5)
-      // Note: Step 2 (Status 18) uses merchant ID and works, so Step 3 should also use merchant ID
+      // Note: Status 17 (Branch/Hub → Rider) works, so Status 18 should be Rider → Merchant
       final request = EventLogRequestModel(
         fkMerchantOrderId: order.pkMerchantOrderId,
         fkStatusId: ShipmentStatusEnum
-            .returnedToMerchant, // Status 19: "Returned to merchant"
-        fkFromEntityTypeId: EntityTypeEnum.branch, // From branch (2 - where parcel was picked up from)
+            .returnedToMerchant, // Status 18: "Returned to merchant"
+        fkFromEntityTypeId: EntityTypeEnum.rider, // From rider (4 - parcel is with rider after Status 18)
         fkToEntityTypeId: EntityTypeEnum.customer, // To merchant (5 - merchant uses customer entity type per enums.md)
-        fkFromEntityId: order.fkFromEntityId, // Branch entity ID (where parcel was picked up from)
-        fkToEntityId: order.fkMerchantId, // Merchant ID (same as Step 2 which works)
+        fkFromEntityId: riderId, // Rider ID (parcel is with this rider)
+        fkToEntityId: order.fkMerchantId, // Merchant ID
         fkRiderId: riderId,
         fkUpdatedByEntityTypeId: EntityTypeEnum.rider, // Updated by Rider (4)
         fkUpdatedBy: riderId,
@@ -263,12 +289,16 @@ class _ReturnsMerchantOrdersScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(() {
+          _toastMessage = e.toString().replaceAll('Exception: ', '');
+        });
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _toastMessage = null;
+            });
+          }
+        });
       }
     } finally {
       setState(() {

@@ -28,6 +28,7 @@ class _DeliverCustomerOrdersScreenState
   final Map<String, bool> _processingOrders = {};
   final Map<String, bool> _journeyStarted = {};
   final TextEditingController _otpController = TextEditingController();
+  String? _toastMessage;
 
   @override
   void initState() {
@@ -72,6 +73,22 @@ class _DeliverCustomerOrdersScreenState
     return address;
   }
 
+  /// Show toast message
+  void _showToast(String message, {bool isSuccess = false}) {
+    if (mounted) {
+      setState(() {
+        _toastMessage = message;
+      });
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _toastMessage = null;
+          });
+        }
+      });
+    }
+  }
+
   Future<void> _loadOrders() async {
     setState(() {
       _isLoading = true;
@@ -105,12 +122,16 @@ class _DeliverCustomerOrdersScreenState
     final riderId = await _storageService.getRiderId();
     if (riderId == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to get rider ID. Please login again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(() {
+          _toastMessage = 'Unable to get rider ID. Please login again.';
+        });
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _toastMessage = null;
+            });
+          }
+        });
       }
       return;
     }
@@ -141,30 +162,40 @@ class _DeliverCustomerOrdersScreenState
         if (success) {
           setState(() {
             _journeyStarted[order.pkMerchantOrderId] = true;
+            _toastMessage = 'Journey started successfully';
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Journey started successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted) {
+              setState(() {
+                _toastMessage = null;
+              });
+            }
+          });
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to start journey'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          setState(() {
+            _toastMessage = 'Failed to start journey';
+          });
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted) {
+              setState(() {
+                _toastMessage = null;
+              });
+            }
+          });
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(() {
+          _toastMessage = e.toString().replaceAll('Exception: ', '');
+        });
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _toastMessage = null;
+            });
+          }
+        });
       }
     } finally {
       setState(() {
@@ -238,26 +269,15 @@ class _DeliverCustomerOrdersScreenState
                 if (_otpController.text.length == 4) {
                   final otp = int.tryParse(_otpController.text);
                   if (otp == null) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please enter a valid OTP'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
+                    Navigator.of(context).pop();
+                    _showToast('Please enter a valid OTP', isSuccess: false);
                     return;
                   }
 
                   Navigator.of(context).pop();
                   await _verifyOtp(order, otp);
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please enter a valid 4-digit OTP'),
-                      backgroundColor: AppColors.black,
-                    ),
-                  );
+                  _showToast('Please enter a valid 4-digit OTP', isSuccess: false);
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -294,22 +314,12 @@ class _DeliverCustomerOrdersScreenState
         if (isVerified) {
           _showOrderDetailsDialog(order);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Invalid OTP. Please try again.'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          _showToast('Invalid OTP. Please try again.', isSuccess: false);
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showToast(e.toString().replaceAll('Exception: ', ''), isSuccess: false);
       }
     } finally {
       setState(() {
@@ -484,12 +494,7 @@ class _DeliverCustomerOrdersScreenState
     final riderId = await _storageService.getRiderId();
     if (riderId == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to get rider ID. Please login again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showToast('Unable to get rider ID. Please login again.', isSuccess: false);
       }
       return;
     }
@@ -518,30 +523,15 @@ class _DeliverCustomerOrdersScreenState
 
       if (mounted) {
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Order completed successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          _showToast('Order completed successfully', isSuccess: true);
           _loadOrders();
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to complete order'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          _showToast('Failed to complete order', isSuccess: false);
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showToast(e.toString().replaceAll('Exception: ', ''), isSuccess: false);
       }
     } finally {
       setState(() {
@@ -637,12 +627,7 @@ class _DeliverCustomerOrdersScreenState
     final riderId = await _storageService.getRiderId();
     if (riderId == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to get rider ID. Please login again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showToast('Unable to get rider ID. Please login again.', isSuccess: false);
       }
       return;
     }
@@ -671,30 +656,15 @@ class _DeliverCustomerOrdersScreenState
 
       if (mounted) {
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Order returned to branch'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          _showToast('Order returned to branch', isSuccess: true);
           _loadOrders();
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to return order'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          _showToast('Failed to return order', isSuccess: false);
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showToast(e.toString().replaceAll('Exception: ', ''), isSuccess: false);
       }
     } finally {
       setState(() {
@@ -722,13 +692,48 @@ class _DeliverCustomerOrdersScreenState
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: AppColors.black,
+      body: Column(
+        children: [
+          // Toast message below appbar
+          if (_toastMessage != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              color: _toastMessage!.contains('successfully') || _toastMessage!.contains('completed')
+                  ? Colors.green
+                  : Colors.red,
+              child: Row(
+                children: [
+                  Icon(
+                    _toastMessage!.contains('successfully') || _toastMessage!.contains('completed')
+                        ? Icons.check_circle
+                        : Icons.error,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _toastMessage!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            )
-          : _errorMessage != null
+            ),
+          // Main content
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.black,
+                    ),
+                  )
+                : _errorMessage != null
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -970,6 +975,9 @@ class _DeliverCustomerOrdersScreenState
                         },
                       ),
                     ),
+          ),
+        ],
+      ),
     );
   }
 }
