@@ -156,16 +156,34 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
       // Flow 1 Step B: "Picked by Rider" - When rider physically picks up parcel from Merchant
       // fk_FromEntityTypeId should be Merchant (from order body), not Customer
       // fk_ToEntityId should be Branch/Hub ID (from order body), not empty
+      // fk_ToEntityTypeId should be Branch or Hub based on toEntityName
+      // Try fkToEntityId first, then fkFromEntityId as fallback (Branch ID might be in either field)
+      final branchId = order.fkToEntityId ?? order.fkFromEntityId ?? '';
+      
+      // Determine ToEntityTypeId based on toEntityName (Branch or Hub)
+      int toEntityTypeId;
+      if (order.toEntityName.toLowerCase().trim() == 'hub') {
+        toEntityTypeId = EntityTypeEnum.hub; // 3
+      } else {
+        toEntityTypeId = EntityTypeEnum.branch; // 2 (default to Branch)
+      }
+      
+      debugPrint('📦 [MerchantOrdersScreen] Branch ID for order ${order.pkMerchantOrderId}:');
+      debugPrint('   - fkToEntityId: ${order.fkToEntityId}');
+      debugPrint('   - fkFromEntityId: ${order.fkFromEntityId}');
+      debugPrint('   - Using branchId: $branchId');
+      debugPrint('   - toEntityName: ${order.toEntityName}');
+      debugPrint('   - toEntityTypeId: $toEntityTypeId');
+      
       final request = EventLogRequestModel(
         fkMerchantOrderId: order.pkMerchantOrderId,
         fkStatusId:
             ShipmentStatusEnum.pickedByRider, // Status 10: "Picked by Rider"
         fkFromEntityTypeId: order.fkFromEntityTypeId ??
             EntityTypeEnum.merchant, // From Merchant (from order body)
-        fkToEntityTypeId: EntityTypeEnum.branch, // To Branch
+        fkToEntityTypeId: toEntityTypeId, // To Branch or Hub (based on toEntityName)
         fkFromEntityId: order.fkMerchantId, // Merchant ID
-        fkToEntityId:
-            order.fkToEntityId ?? '', // Branch/Hub ID (from order body)
+        fkToEntityId: branchId, // Branch/Hub ID (from order body)
         fkRiderId: riderId,
         fkUpdatedByEntityTypeId: EntityTypeEnum.rider, // Updated by Rider
         fkUpdatedBy: riderId,

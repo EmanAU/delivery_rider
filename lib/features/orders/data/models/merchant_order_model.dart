@@ -22,6 +22,8 @@ class MerchantOrderModel {
   final int fkShipmentStatusId;
   final int? fkFromEntityTypeId;
   final String? fkToEntityId;
+  final String?
+      fkFromEntityId; // Branch/Hub ID (destination for merchant orders)
 
   MerchantOrderModel({
     required this.pkMerchantOrderId,
@@ -45,6 +47,7 @@ class MerchantOrderModel {
     required this.fkShipmentStatusId,
     this.fkFromEntityTypeId,
     this.fkToEntityId,
+    this.fkFromEntityId,
   });
 
   factory MerchantOrderModel.fromJson(Map<String, dynamic> json) {
@@ -57,9 +60,16 @@ class MerchantOrderModel {
     debugPrint('   - pickupAddress: ${json['pickupAddress']}');
     debugPrint('   - merchantPhoneNumber: ${json['merchantPhoneNumber']}');
     debugPrint('   - toEntityName: ${json['toEntityName']}');
-    
+    debugPrint('   - fk_ToEntityId: ${json['fk_ToEntityId']}');
+    debugPrint('   - fkToEntityId: ${json['fkToEntityId']}');
+    debugPrint('   - fk_FromEntityId: ${json['fk_FromEntityId']}');
+    debugPrint('   - fkFromEntityId: ${json['fkFromEntityId']}');
+    debugPrint('   - fk_FromEntityTypeId: ${json['fk_FromEntityTypeId']}');
+    debugPrint('   - fkFromEntityTypeId: ${json['fkFromEntityTypeId']}');
+
     final model = MerchantOrderModel(
-      pkMerchantOrderId: json['pk_MerchantOrderId'] ?? json['pkMerchantOrderId'] ?? '',
+      pkMerchantOrderId:
+          json['pk_MerchantOrderId'] ?? json['pkMerchantOrderId'] ?? '',
       fkMerchantId: json['fk_MerchantId'] ?? json['fkMerchantId'] ?? '',
       orderReferenceNumber: json['orderReferenceNumber'] ?? '',
       shipmentDescription: json['shipmentDescription'] ?? '',
@@ -77,18 +87,26 @@ class MerchantOrderModel {
       pickupAddress: json['pickupAddress'] ?? '',
       businessName: json['businessName'] ?? '',
       merchantPhoneNumber: json['merchantPhoneNumber'] ?? '',
-      fkShipmentStatusId: json['fk_ShipmentStatusId'] ?? json['fkShipmentStatusId'] ?? 0,
-      fkFromEntityTypeId: json['fk_FromEntityTypeId'] ?? json['fkFromEntityTypeId'],
+      fkShipmentStatusId:
+          json['fk_ShipmentStatusId'] ?? json['fkShipmentStatusId'] ?? 0,
+      fkFromEntityTypeId:
+          json['fk_FromEntityTypeId'] ?? json['fkFromEntityTypeId'],
       fkToEntityId: json['fk_ToEntityId'] ?? json['fkToEntityId'],
+      fkFromEntityId: json['fk_FromEntityId'] ?? json['fkFromEntityId'],
     );
-    
+
+    debugPrint('📦 [MerchantOrderModel] Entity IDs:');
+    debugPrint('   - fkFromEntityTypeId: ${model.fkFromEntityTypeId}');
+    debugPrint('   - fkToEntityId: ${model.fkToEntityId}');
+    debugPrint('   - fkFromEntityId: ${model.fkFromEntityId}');
+
     debugPrint('📦 [MerchantOrderModel] Parsed model:');
     debugPrint('   - pkMerchantOrderId: ${model.pkMerchantOrderId}');
     debugPrint('   - orderReferenceNumber: ${model.orderReferenceNumber}');
     debugPrint('   - businessName: ${model.businessName}');
     debugPrint('   - pickupAddress: ${model.pickupAddress}');
     debugPrint('   - merchantPhoneNumber: ${model.merchantPhoneNumber}');
-    
+
     return model;
   }
 
@@ -115,7 +133,7 @@ class MerchantOrderModel {
       'fk_ShipmentStatusId': fkShipmentStatusId,
       'fk_FromEntityTypeId': fkFromEntityTypeId,
       'fk_ToEntityId': fkToEntityId,
+      'fk_FromEntityId': fkFromEntityId,
     };
   }
 }
-
