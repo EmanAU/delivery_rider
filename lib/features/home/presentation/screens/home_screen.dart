@@ -53,13 +53,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Set system UI overlay style for consistent status bar and navigation bar
     SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
+      SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
         systemNavigationBarColor: AppColors.white,
         systemNavigationBarIconBrightness: Brightness.dark,
-        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarDividerColor: AppColors.black.withValues(alpha: 0.1),
       ),
     );
 
@@ -165,63 +165,94 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     // Mobile header (visible on smaller screens)
                     if (!isLargeScreen) ...[
-                      Row(
-                        children: [
-                          // Logo with circular border
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.white,
-                              border: Border.all(
-                                color: AppColors.black.withValues(alpha: 0.2),
-                                width: 2,
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppColors.black.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.black.withValues(alpha: 0.1),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            // Logo with circular border and shadow
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.white,
+                                border: Border.all(
+                                  color: AppColors.black.withValues(alpha: 0.2),
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.black.withValues(alpha: 0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              padding: const EdgeInsets.all(10),
+                              child: Image.asset(
+                                'assets/logo.png',
+                                fit: BoxFit.contain,
+                                color: null,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(
+                                    Icons.business,
+                                    size: 50,
+                                    color: AppColors.black,
+                                  );
+                                },
                               ),
                             ),
-                            padding: const EdgeInsets.all(12),
-                            child: Image.asset(
-                              'assets/logo.png',
-                              fit: BoxFit.contain,
-                              color: null,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(
-                                  Icons.business,
-                                  size: 60,
-                                  color: AppColors.black,
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'SOAR LOGISTICS',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w300,
-                                    color: AppColors.black,
-                                    letterSpacing: 2,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'SOAR LOGISTICS',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w400,
+                                      color: AppColors.black,
+                                      letterSpacing: 2,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Rider: $_riderName',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w300,
-                                    color: AppColors.black,
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.person_outline,
+                                        size: 16,
+                                        color: AppColors.black.withValues(alpha: 0.6),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          _riderName,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w400,
+                                            color: AppColors.black.withValues(alpha: 0.7),
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 80),
+                      const SizedBox(height: 32),
                     ],
 
                     // Options grid

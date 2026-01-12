@@ -349,36 +349,32 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
                                     false;
 
                                 return Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  padding: const EdgeInsets.all(16),
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  padding: const EdgeInsets.all(20),
                                   decoration: BoxDecoration(
-                                    color:
-                                        AppColors.white.withValues(alpha: 0.5),
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        color: AppColors.black
-                                            .withValues(alpha: 0.1),
-                                        width: 1,
-                                      ),
+                                    color: AppColors.black.withValues(alpha: 0.05),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: AppColors.black.withValues(alpha: 0.1),
+                                      width: 1,
                                     ),
                                   ),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      // Left side - Order details
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
+                                      // Order Reference and Date Row
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Row(
                                               children: [
                                                 Text(
                                                   '${index + 1}.',
                                                   style: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w400,
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.w500,
                                                     color: AppColors.black,
                                                   ),
                                                 ),
@@ -388,43 +384,15 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
                                                     'Ref: ${order.orderReferenceNumber}',
                                                     style: const TextStyle(
                                                       fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.w400,
+                                                      fontWeight: FontWeight.w400,
                                                       color: AppColors.black,
                                                     ),
+                                                    softWrap: true,
                                                   ),
                                                 ),
                                               ],
                                             ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              order.businessName,
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors.black,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              _getFormattedAddress(
-                                                  order.pickupAddress),
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w300,
-                                                color: AppColors.black,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      // Right side - Date, Phone, and Receive button
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
+                                          ),
                                           Text(
                                             _formatDate(order.orderDate),
                                             style: const TextStyle(
@@ -432,60 +400,105 @@ class _MerchantOrdersScreenState extends State<MerchantOrdersScreen> {
                                               fontWeight: FontWeight.w300,
                                               color: AppColors.black,
                                             ),
+                                            textAlign: TextAlign.end,
                                           ),
-                                          const SizedBox(height: 8),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      // Business Name
+                                      Text(
+                                        order.businessName,
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.black,
+                                        ),
+                                        softWrap: true,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      // Address - Full text, no truncation
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Icon(
+                                            Icons.location_on,
+                                            size: 18,
+                                            color: AppColors.black,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              _getFormattedAddress(
+                                                  order.pickupAddress),
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w400,
+                                                color: AppColors.black,
+                                              ),
+                                              softWrap: true,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      // Phone Number
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.phone,
+                                            size: 18,
+                                            color: AppColors.black,
+                                          ),
+                                          const SizedBox(width: 8),
                                           Text(
                                             order.merchantPhoneNumber,
                                             style: const TextStyle(
-                                              fontSize: 14,
+                                              fontSize: 16,
                                               fontWeight: FontWeight.w600,
                                               color: AppColors.black,
                                             ),
                                           ),
-                                          const SizedBox(height: 12),
-                                          SizedBox(
-                                            width: 100,
-                                            height: 36,
-                                            child: ElevatedButton(
-                                              onPressed: isProcessing
-                                                  ? null
-                                                  : () => _handleReceive(order),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor:
-                                                    AppColors.black,
-                                                foregroundColor:
-                                                    AppColors.white,
-                                                disabledBackgroundColor:
-                                                    AppColors.black
-                                                        .withValues(alpha: 0.5),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                ),
-                                                elevation: 0,
-                                                padding: EdgeInsets.zero,
-                                              ),
-                                              child: isProcessing
-                                                  ? const SizedBox(
-                                                      width: 16,
-                                                      height: 16,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                        color: Colors.white,
-                                                      ),
-                                                    )
-                                                  : const Text(
-                                                      'Receive',
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                      ),
-                                                    ),
-                                            ),
-                                          ),
                                         ],
+                                      ),
+                                      const SizedBox(height: 20),
+                                      // Receive Button - Full width
+                                      SizedBox(
+                                        width: double.infinity,
+                                        height: 50,
+                                        child: ElevatedButton(
+                                          onPressed: isProcessing
+                                              ? null
+                                              : () => _handleReceive(order),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppColors.black,
+                                            foregroundColor: AppColors.white,
+                                            disabledBackgroundColor:
+                                                AppColors.black
+                                                    .withValues(alpha: 0.5),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            elevation: 0,
+                                          ),
+                                          child: isProcessing
+                                              ? const SizedBox(
+                                                  width: 24,
+                                                  height: 24,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    color: Colors.white,
+                                                  ),
+                                                )
+                                              : const Text(
+                                                  'Receive',
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                        ),
                                       ),
                                     ],
                                   ),

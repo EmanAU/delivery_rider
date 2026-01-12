@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/shipment_status_enum.dart';
 import '../../../../core/constants/entity_type_enum.dart';
@@ -9,6 +10,7 @@ import '../../data/models/customer_order_model.dart';
 import '../../data/services/order_service.dart';
 import '../../data/services/delivery_service.dart';
 import '../../data/models/event_log_request_model.dart';
+import '../providers/deliver_customer_orders_provider.dart';
 
 class DeliverCustomerOrdersScreen extends StatefulWidget {
   const DeliverCustomerOrdersScreen({super.key});
@@ -27,7 +29,6 @@ class _DeliverCustomerOrdersScreenState
   bool _isLoading = true;
   String? _errorMessage;
   final Map<String, bool> _processingOrders = {};
-  final Map<String, bool> _journeyStarted = {};
   final TextEditingController _otpController = TextEditingController();
   String? _toastMessage;
 
@@ -161,8 +162,14 @@ class _DeliverCustomerOrdersScreenState
 
       if (mounted) {
         if (success) {
+          // Update provider state
+          final provider = Provider.of<DeliverCustomerOrdersProvider>(
+            context,
+            listen: false,
+          );
+          provider.setJourneyStarted(order.pkMerchantOrderId, true);
+          
           setState(() {
-            _journeyStarted[order.pkMerchantOrderId] = true;
             _toastMessage = 'Journey started successfully';
           });
           Future.delayed(const Duration(seconds: 3), () {
@@ -770,8 +777,11 @@ class _DeliverCustomerOrdersScreenState
                           final order = _orders[index];
                           final isProcessing =
                               _processingOrders[order.pkMerchantOrderId] ?? false;
+                          final provider = Provider.of<DeliverCustomerOrdersProvider>(
+                            context,
+                          );
                           final journeyStarted =
-                              _journeyStarted[order.pkMerchantOrderId] ?? false;
+                              provider.isJourneyStarted(order.pkMerchantOrderId);
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 16),

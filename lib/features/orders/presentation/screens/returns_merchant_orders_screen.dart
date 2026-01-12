@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/shipment_status_enum.dart';
 import '../../../../core/constants/entity_type_enum.dart';
@@ -9,6 +10,7 @@ import '../../data/models/customer_order_model.dart';
 import '../../data/services/order_service.dart';
 import '../../data/services/delivery_service.dart';
 import '../../data/models/event_log_request_model.dart';
+import '../providers/returns_merchant_orders_provider.dart';
 
 class ReturnsMerchantOrdersScreen extends StatefulWidget {
   const ReturnsMerchantOrdersScreen({super.key});
@@ -27,7 +29,6 @@ class _ReturnsMerchantOrdersScreenState
   bool _isLoading = true;
   String? _errorMessage;
   final Map<String, bool> _processingOrders = {};
-  final Map<String, bool> _pickedUp = {};
   String? _toastMessage;
 
   /// Format date from ISO string to readable format
@@ -103,9 +104,16 @@ class _ReturnsMerchantOrdersScreenState
 
       // Preserve orders that are in progress (picked up but not yet returned)
       // These orders have status 17 (Rider return to merchant) and won't be returned by API
-      final inProgressOrders = _orders
-          .where((order) => _pickedUp[order.pkMerchantOrderId] == true)
-          .toList();
+      List<CustomerOrderModel> inProgressOrders = [];
+      if (mounted) {
+        final provider = Provider.of<ReturnsMerchantOrdersProvider>(
+          context,
+          listen: false,
+        );
+        inProgressOrders = _orders
+            .where((order) => provider.isPickedUp(order.pkMerchantOrderId))
+            .toList();
+      }
 
       // Merge new orders with in-progress orders, avoiding duplicates
       final existingOrderIds =
@@ -173,8 +181,14 @@ class _ReturnsMerchantOrdersScreenState
 
       if (mounted) {
         if (success) {
+          // Update provider state
+          final provider = Provider.of<ReturnsMerchantOrdersProvider>(
+            context,
+            listen: false,
+          );
+          provider.setPickedUp(order.pkMerchantOrderId, true);
+          
           setState(() {
-            _pickedUp[order.pkMerchantOrderId] = true;
             _toastMessage = 'Order picked up for return';
           });
           // Hide toast after 3 seconds
@@ -265,12 +279,18 @@ class _ReturnsMerchantOrdersScreenState
 
       if (mounted) {
         if (success) {
+          // Update provider state - clear picked up status
+          final provider = Provider.of<ReturnsMerchantOrdersProvider>(
+            context,
+            listen: false,
+          );
+          provider.clearPickedUp(order.pkMerchantOrderId);
+          
           setState(() {
             _toastMessage = 'Order returned to merchant successfully';
             // Remove the order from the list after successful return
             _orders.removeWhere(
                 (o) => o.pkMerchantOrderId == order.pkMerchantOrderId);
-            _pickedUp.remove(order.pkMerchantOrderId);
           });
           // Hide toast after 3 seconds
           Future.delayed(const Duration(seconds: 3), () {
@@ -484,8 +504,11 @@ class _ReturnsMerchantOrdersScreenState
                                 final isProcessing = _processingOrders[
                                         order.pkMerchantOrderId] ??
                                     false;
+                                final provider = Provider.of<ReturnsMerchantOrdersProvider>(
+                                  context,
+                                );
                                 final pickedUp =
-                                    _pickedUp[order.pkMerchantOrderId] ?? false;
+                                    provider.isPickedUp(order.pkMerchantOrderId);
 
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 12),
